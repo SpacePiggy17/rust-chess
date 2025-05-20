@@ -11,3 +11,6 @@ crate-type = ["cdylib"]
 [dependencies]
 chess = "3.2.0"
 pyo3 = "0.24.0"
+
+[lints.clippy]
+pedantic = "warn"
