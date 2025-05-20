@@ -13,4 +13,9 @@ classifiers = [
 dynamic = ["version"]
 [tool.maturin]
 features = ["pyo3/extension-module"]
-rustc-args = ["-C", "target-cpu=native"] # Gain access to CPU popcnt and ctzl (recommended by chess crate)
+rustc-args = [
+    "-C",
+    "target-cpu=native",           # Gain access to CPU popcnt and ctzl (recommended by chess crate)
+    "--cfg",
+    "pyo3_disable_reference_pool", # Disables the global reference pool: reduces overhead crossing Py-Rust boundary when creating objects in Python
+]
