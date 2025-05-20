@@ -1,9 +1,7 @@
 import rust_chess as ch
+import chess
 
-n = 1
-# n = 100_000
-
-for i in range(n):
+def test_rust_chess():
     color = ch.WHITE
     color2 = ch.COLORS[1]
     print(color)
@@ -32,7 +30,7 @@ for i in range(n):
     print()
 
     move = ch.Move(ch.Square(12), ch.Square(28))
-    move2 = ch.Move.from_uci("E2E4")
+    move2 = ch.Move.from_uci("E2e4")
     print(move2)
     print(move2.get_uci())
     print(move2.source)
@@ -49,16 +47,14 @@ for i in range(n):
     print(board.is_fifty_moves())
     print(board.is_check())
 
-print("---------------------------------------")
-
-import chess
-for i in range(n):
+def test_chess():
     pawn = chess.PAWN
     print(pawn)
     print()
 
     square = chess.Square(12)
     square2 = chess.parse_square("e2")
+    square3 = chess.A3
     print(square2)
     print(chess.square_name(square2))
     print(chess.square_file(square2))
@@ -82,3 +78,15 @@ for i in range(n):
     print(board.fullmove_number)
     print(board.is_fifty_moves())
     print(board.is_check())
+
+if __name__ == "__main__":
+    n = 1
+    # n = 100_000
+
+    for i in range(n):
+        test_rust_chess()
+
+    print("---------------------------------------")
+
+    for i in range(n):
+        test_chess()
