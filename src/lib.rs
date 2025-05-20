@@ -80,6 +80,7 @@ impl PyPiece {
 
     // Convert the piece to a string
     #[inline]
+    #[allow(clippy::wrong_self_convention, clippy::inherent_to_string)]
     fn to_string(&self) -> String {
         match *self {
             PyPiece::PAWN => "PAWN".to_string(),
