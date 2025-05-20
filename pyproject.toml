@@ -3,7 +3,7 @@ requires = ["maturin>=1.8,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "rust-chess"
+name = "rust_chess"
 requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Rust",
@@ -11,7 +11,9 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dynamic = ["version"]
+
 [tool.maturin]
+profile = "release" # Use release profile for building
 features = ["pyo3/extension-module"]
 rustc-args = [
     "-C",

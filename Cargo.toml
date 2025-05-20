@@ -1,16 +1,17 @@
 [package]
-name = "rust-chess"
+name = "rust_chess"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
 name = "rust_chess"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"] # rlib for stub generation
 
 [dependencies]
 chess = "3.2.0"
 pyo3 = "0.24.0"
+pyo3-stub-gen = "0.8.2" # Enable auto generating pyo3 stub files
 
 [lints.clippy]
 pedantic = "warn"

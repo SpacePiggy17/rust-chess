@@ -3,8 +3,8 @@
 
 use std::str::FromStr;
 
-use chess::Board;
 use pyo3::{exceptions::PyValueError, prelude::*, types::PyAny};
+use pyo3_stub_gen::{define_stub_info_gatherer, derive::{gen_stub_pyclass, gen_stub_pymethods}};
 
 // Color constants
 const WHITE: PyColor = PyColor(chess::Color::White);
@@ -21,10 +21,12 @@ const KING: PyPiece = PyPiece(chess::Piece::King);
 const PIECES: [PyPiece; 6] = [PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING];
 
 /// Color enum
+#[gen_stub_pyclass]
 #[pyclass(name = "Color")]
 #[derive(PartialOrd, PartialEq, Eq, Copy, Clone, Hash)]
 struct PyColor(chess::Color);
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyColor {
     /// Get the color as a string
@@ -49,10 +51,12 @@ impl PyColor {
 }
 
 /// Piece enum
+#[gen_stub_pyclass]
 #[pyclass(name = "Piece")]
 #[derive(PartialEq, Eq, Ord, PartialOrd, Copy, Clone, Hash)]
 struct PyPiece(chess::Piece);
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyPiece {
     /// Get the index of the piece (0-5)
@@ -90,10 +94,12 @@ impl PyPiece {
 }
 
 /// Square class
+#[gen_stub_pyclass]
 #[pyclass(name = "Square")]
 #[derive(PartialEq, Ord, Eq, PartialOrd, Copy, Clone, Default, Hash)]
 struct PySquare(chess::Square);
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PySquare {
     /// Creates a new square from an integer (0-63) or a string (e.g. "e4")
@@ -215,10 +221,12 @@ impl PySquare {
 }
 
 /// Move class
+#[gen_stub_pyclass]
 #[pyclass(name = "Move")]
 #[derive(Clone, Copy, Eq, PartialOrd, PartialEq, Default, Hash)]
 struct PyMove(chess::ChessMove);
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyMove {
     /// Create a new move from a source square, destination square, and optional promotion piece
@@ -292,10 +300,11 @@ impl PyMove {
 }
 
 /// Board class
+#[gen_stub_pyclass]
 #[pyclass(name = "Board")]
 #[derive(Copy, Clone, PartialEq)]
 struct PyBoard {
-    board: Board,
+    board: chess::Board,
     #[pyo3(get)] // Get the halfmove clock
     halfmove_clock: u8, // Halfmoves since last pawn move or capture
     #[pyo3(get)] // Get the fullmove number
@@ -303,6 +312,7 @@ struct PyBoard {
                          // TODO: Incremental Zobrist hash
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyBoard {
     /// Create a new board from a FEN string, otherwise default to the starting position
@@ -312,7 +322,7 @@ impl PyBoard {
         match fen {
             // If no FEN string is provided, use the default starting position
             None => Ok(PyBoard {
-                board: Board::default(),
+                board: chess::Board::default(),
                 halfmove_clock: 0,
                 fullmove_number: 1,
             }),
@@ -366,7 +376,7 @@ impl PyBoard {
 
         // Parse the board using the chess crate
         let board =
-            Board::from_str(fen).map_err(|e| PyValueError::new_err(format!("Invalid FEN: {e}")))?;
+            chess::Board::from_str(fen).map_err(|e| PyValueError::new_err(format!("Invalid FEN: {e}")))?;
 
         Ok(PyBoard {
             board,
@@ -440,3 +450,6 @@ fn rust_chess(module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     Ok(())
 }
+
+// Define a function to gather stub information.
+define_stub_info_gatherer!(stub_info);
