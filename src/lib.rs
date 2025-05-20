@@ -6,6 +6,42 @@ use std::str::FromStr;
 use chess::Board;
 use pyo3::{exceptions::PyValueError, prelude::*, types::PyAny};
 
+/// Color enum
+#[pyclass(name = "Color")]
+#[derive(PartialOrd, PartialEq, Eq, Copy, Clone, Hash)]
+struct PyColor(chess::Color);
+
+#[pymethods]
+impl PyColor {
+    #[classattr]
+    const WHITE: PyColor = PyColor(chess::Color::White);
+    #[classattr]
+    const BLACK: PyColor = PyColor(chess::Color::Black);
+
+    #[classattr]
+    const COLORS: [PyColor; 2] = [PyColor::WHITE, PyColor::BLACK];
+
+    /// Get the color as a string
+    #[inline]
+    fn __str__(&self) -> String {
+        if *self == PyColor::WHITE {
+            "WHITE".to_string()
+        } else {
+            "BLACK".to_string()
+        }
+    }
+
+    /// Get the color as a bool string
+    #[inline]
+    fn __repr__(&self) -> String {
+        if *self == PyColor::WHITE {
+            "True".to_string()
+        } else {
+            "False".to_string()
+        }
+    }
+}
+
 /// Piece enum
 #[pyclass(name = "Piece")]
 #[derive(PartialEq, Eq, Ord, PartialOrd, Copy, Clone, Hash)]
@@ -41,15 +77,29 @@ impl PyPiece {
     fn get_index(&self) -> u8 {
         self.0 as u8
     }
-    
-    // Convert the piece to a string (uppercase)
+
+    // Convert the piece to a string
     #[inline]
     fn to_string(&self) -> String {
-        self.0.to_string(chess::Color::White)
+        match *self {
+            PyPiece::PAWN => "PAWN".to_string(),
+            PyPiece::KNIGHT => "KNIGHT".to_string(),
+            PyPiece::BISHOP => "BISHOP".to_string(),
+            PyPiece::ROOK => "ROOK".to_string(),
+            PyPiece::QUEEN => "QUEEN".to_string(),
+            PyPiece::KING => "KING".to_string(),
+        }
     }
-    
+
+    /// Convert the piece to a string
     #[inline]
     fn __str__(&self) -> String {
+        self.to_string()
+    }
+
+    /// Convert the piece to a string
+    #[inline]
+    fn __repr__(&self) -> String {
         self.to_string()
     }
 }
@@ -72,7 +122,6 @@ impl PySquare {
         else if let Ok(square_name) = square.extract::<&str>() {
             return PySquare::from_name(square_name);
         }
-
         // If the input is neither an integer nor a string, return an error
         Err(PyValueError::new_err(
             "Square must be an integer (0-63) or a string (e.g. \"e4\")",
@@ -84,7 +133,7 @@ impl PySquare {
     fn get_index(&self) -> u8 {
         self.0.to_int()
     }
-    
+
     /// Create a new square from an index
     #[inline]
     #[staticmethod]
@@ -98,6 +147,20 @@ impl PySquare {
     }
 
     // TODO: from_rank_file
+    /// Create a new square from a rank and file
+    #[inline]
+    #[staticmethod]
+    fn from_rank_file(rank: u8, file: u8) -> PyResult<Self> {
+        if rank > 7 || file > 7 {
+            return Err(PyValueError::new_err(
+                "Rank and file must be between 0 and 7",
+            ));
+        }
+        Ok(PySquare(chess::Square::make_square(
+            chess::Rank::from_index(rank as usize),
+            chess::File::from_index(file as usize),
+        )))
+    }
 
     /// Get the name of the square (e.g. "e4")
     #[inline]
@@ -105,20 +168,25 @@ impl PySquare {
         // Convert the square to a string using the chess crate
         self.0.to_string()
     }
-    
+
     /// Get the name of the square (e.g. "e4")
     #[inline]
     fn __str__(&self) -> String {
         self.get_name()
     }
-    
+
+    /// Get the name of the square (e.g. "e4")
+    #[inline]
+    fn __repr__(&self) -> String {
+        self.get_name()
+    }
+
     /// Create a new square from the name (e.g. "e4")
     #[inline]
     #[staticmethod]
     fn from_name(square_name: &str) -> PyResult<Self> {
-        let square_name = square_name.to_lowercase();
-
         // Parse the square using the chess crate
+        let square_name = square_name.to_lowercase();
         chess::Square::from_str(&square_name)
             .map(PySquare)
             .map_err(|_| PyValueError::new_err("Invalid square"))
@@ -129,31 +197,31 @@ impl PySquare {
     fn get_rank(&self) -> u8 {
         self.0.get_rank() as u8
     }
-    
+
     /// Get the file of the square (0-7)
     #[inline]
     fn get_file(&self) -> u8 {
         self.0.get_file() as u8
     }
-    
+
     /// Returns the square above, otherwise None
     #[inline]
     fn up(&self) -> Option<Self> {
         self.0.up().map(PySquare)
     }
-    
+
     /// Returns the square below, otherwise None
     #[inline]
     fn down(&self) -> Option<Self> {
         self.0.down().map(PySquare)
     }
-    
+
     /// Returns the square to the left, otherwise None
     #[inline]
     fn left(&self) -> Option<Self> {
         self.0.left().map(PySquare)
     }
-    
+
     /// Returns the square to the right, otherwise None
     #[inline]
     fn right(&self) -> Option<Self> {
@@ -186,9 +254,8 @@ impl PyMove {
     #[inline]
     #[staticmethod]
     fn from_uci(uci: &str) -> PyResult<Self> {
-        let uci = uci.to_lowercase();
-        
         // Parse the move using the chess crate
+        let uci = uci.to_lowercase();
         chess::ChessMove::from_str(&uci)
             .map(PyMove)
             .map_err(|_| PyValueError::new_err("Invalid UCI move"))
@@ -205,6 +272,16 @@ impl PyMove {
     #[inline]
     fn __str__(&self) -> String {
         self.get_uci()
+    }
+
+    /// Get the debug representation of the move (e.g. "Move(e2, e4, None)")
+    fn __repr__(&self) -> String {
+        format!(
+            "Move({}, {}, {:?})",
+            self.0.get_source(),
+            self.0.get_dest(),
+            self.0.get_promotion()
+        )
     }
 
     /// Get the source square of the move
@@ -265,8 +342,7 @@ impl PyBoard {
     fn get_fen(&self) -> String {
         let base_fen = self.board.to_string();
 
-        // The chess crate does not track the halfmove clock and fullmove number,
-        // so we need to add them manually.
+        // The chess crate does not track the halfmove clock and fullmove number, so we need to add them manually.
         // 0: board, 1: player, 2: castling, 3: en passant, 4: halfmove clock, 5: fullmove number
         let mut parts: Vec<&str> = base_fen.split_whitespace().collect();
 
@@ -294,7 +370,7 @@ impl PyBoard {
                 "FEN string must have exactly 6 parts",
             ));
         }
-        
+
         // Parse the halfmove clock and fullmove number
         let halfmove_clock = parts[4]
             .parse::<u8>()
@@ -320,7 +396,7 @@ impl PyBoard {
     fn is_fifty_moves(&self) -> bool {
         self.halfmove_clock >= 100 && self.board.status() == chess::BoardStatus::Ongoing
     }
-    
+
     /// Checks if the side to move is in check
     #[inline]
     fn is_check(&self) -> bool {
@@ -333,6 +409,7 @@ impl PyBoard {
 // Define the Python module
 #[pymodule]
 fn rust_chess(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<PyColor>()?;
     m.add_class::<PyPiece>()?;
     m.add_class::<PySquare>()?;
     m.add_class::<PyMove>()?;

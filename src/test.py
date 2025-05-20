@@ -1,8 +1,16 @@
 import rust_chess as ch
 
-n = 100_000
+n = 1
+# n = 100_000
 
 for i in range(n):
+    color = ch.Color.WHITE
+    color2 = ch.Color.COLORS[1]
+    print(color)
+    print(color2)
+    print(not color2)
+    print()
+
     pawn = ch.Piece.PAWN
     print(pawn)
     print(pawn.to_string())
@@ -39,6 +47,8 @@ for i in range(n):
     print(board.fullmove_number)
     print(board.is_fifty_moves())
     print(board.is_check())
+
+print("---------------------------------------")
 
 import chess
 for i in range(n):
