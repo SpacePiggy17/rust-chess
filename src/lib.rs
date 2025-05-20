@@ -6,6 +6,20 @@ use std::str::FromStr;
 use chess::Board;
 use pyo3::{exceptions::PyValueError, prelude::*, types::PyAny};
 
+// Color constants
+const WHITE: PyColor = PyColor(chess::Color::White);
+const BLACK: PyColor = PyColor(chess::Color::Black);
+const COLORS: [PyColor; 2] = [WHITE, BLACK];
+
+// Piece constants
+const PAWN: PyPiece = PyPiece(chess::Piece::Pawn);
+const KNIGHT: PyPiece = PyPiece(chess::Piece::Knight);
+const BISHOP: PyPiece = PyPiece(chess::Piece::Bishop);
+const ROOK: PyPiece = PyPiece(chess::Piece::Rook);
+const QUEEN: PyPiece = PyPiece(chess::Piece::Queen);
+const KING: PyPiece = PyPiece(chess::Piece::King);
+const PIECES: [PyPiece; 6] = [PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING];
+
 /// Color enum
 #[pyclass(name = "Color")]
 #[derive(PartialOrd, PartialEq, Eq, Copy, Clone, Hash)]
@@ -13,18 +27,10 @@ struct PyColor(chess::Color);
 
 #[pymethods]
 impl PyColor {
-    #[classattr]
-    const WHITE: PyColor = PyColor(chess::Color::White);
-    #[classattr]
-    const BLACK: PyColor = PyColor(chess::Color::Black);
-
-    #[classattr]
-    const COLORS: [PyColor; 2] = [PyColor::WHITE, PyColor::BLACK];
-
     /// Get the color as a string
     #[inline]
     fn __str__(&self) -> String {
-        if *self == PyColor::WHITE {
+        if *self == WHITE {
             "WHITE".to_string()
         } else {
             "BLACK".to_string()
@@ -34,7 +40,7 @@ impl PyColor {
     /// Get the color as a bool string
     #[inline]
     fn __repr__(&self) -> String {
-        if *self == PyColor::WHITE {
+        if *self == WHITE {
             "True".to_string()
         } else {
             "False".to_string()
@@ -49,33 +55,11 @@ struct PyPiece(chess::Piece);
 
 #[pymethods]
 impl PyPiece {
-    #[classattr]
-    const PAWN: PyPiece = PyPiece(chess::Piece::Pawn);
-    #[classattr]
-    const KNIGHT: PyPiece = PyPiece(chess::Piece::Knight);
-    #[classattr]
-    const BISHOP: PyPiece = PyPiece(chess::Piece::Bishop);
-    #[classattr]
-    const ROOK: PyPiece = PyPiece(chess::Piece::Rook);
-    #[classattr]
-    const QUEEN: PyPiece = PyPiece(chess::Piece::Queen);
-    #[classattr]
-    const KING: PyPiece = PyPiece(chess::Piece::King);
-
-    #[classattr]
-    const PIECES: [PyPiece; 6] = [
-        PyPiece::PAWN,
-        PyPiece::KNIGHT,
-        PyPiece::BISHOP,
-        PyPiece::ROOK,
-        PyPiece::QUEEN,
-        PyPiece::KING,
-    ];
-
     /// Get the index of the piece (0-5)
     #[inline]
+    #[allow(clippy::cast_possible_truncation)]
     fn get_index(&self) -> u8 {
-        self.0 as u8
+        self.0.to_index() as u8
     }
 
     // Convert the piece to a string
@@ -83,12 +67,12 @@ impl PyPiece {
     #[allow(clippy::wrong_self_convention, clippy::inherent_to_string)]
     fn to_string(&self) -> String {
         match *self {
-            PyPiece::PAWN => "PAWN".to_string(),
-            PyPiece::KNIGHT => "KNIGHT".to_string(),
-            PyPiece::BISHOP => "BISHOP".to_string(),
-            PyPiece::ROOK => "ROOK".to_string(),
-            PyPiece::QUEEN => "QUEEN".to_string(),
-            PyPiece::KING => "KING".to_string(),
+            PAWN => "PAWN".to_string(),
+            KNIGHT => "KNIGHT".to_string(),
+            BISHOP => "BISHOP".to_string(),
+            ROOK => "ROOK".to_string(),
+            QUEEN => "QUEEN".to_string(),
+            KING => "KING".to_string(),
         }
     }
 
@@ -409,12 +393,50 @@ impl PyBoard {
 
 // Define the Python module
 #[pymodule]
-fn rust_chess(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_class::<PyColor>()?;
-    m.add_class::<PyPiece>()?;
-    m.add_class::<PySquare>()?;
-    m.add_class::<PyMove>()?;
-    m.add_class::<PyBoard>()?;
+fn rust_chess(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<PyColor>()?;
+    module.add_class::<PyPiece>()?;
+    module.add_class::<PySquare>()?;
+    module.add_class::<PyMove>()?;
+    module.add_class::<PyBoard>()?;
+
+    // Add the constants to the module
+
+    // Add the color constants
+    module.add("WHITE", WHITE)?;
+    module.add("BLACK", BLACK)?;
+    module.add("COLORS", COLORS)?;
+
+    // Add the piece constants
+    module.add("PAWN", PAWN)?;
+    module.add("KNIGHT", KNIGHT)?;
+    module.add("BISHOP", BISHOP)?;
+    module.add("ROOK", ROOK)?;
+    module.add("QUEEN", QUEEN)?;
+    module.add("KING", KING)?;
+    module.add("PIECES", PIECES)?;
+
+    // Define a macro to add square constants directly to the module (e.g. A1, A2, etc.)
+    macro_rules! add_square_constants {
+        ($module:expr, $($name:ident),*) => {
+            $(
+                $module.add(stringify!($name), PySquare(chess::Square::$name))?;
+            )*
+        }
+    }
+
+    // Add all square constants directly to the module
+    #[rustfmt::skip]
+    add_square_constants!(module,
+        A1, A2, A3, A4, A5, A6, A7, A8,
+        B1, B2, B3, B4, B5, B6, B7, B8,
+        C1, C2, C3, C4, C5, C6, C7, C8,
+        D1, D2, D3, D4, D5, D6, D7, D8,
+        E1, E2, E3, E4, E5, E6, E7, E8,
+        F1, F2, F3, F4, F5, F6, F7, F8,
+        G1, G2, G3, G4, G5, G6, G7, G8,
+        H1, H2, H3, H4, H5, H6, H7, H8
+    );
 
     Ok(())
 }

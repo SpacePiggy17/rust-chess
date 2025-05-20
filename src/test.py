@@ -4,14 +4,14 @@ n = 1
 # n = 100_000
 
 for i in range(n):
-    color = ch.Color.WHITE
-    color2 = ch.Color.COLORS[1]
+    color = ch.WHITE
+    color2 = ch.COLORS[1]
     print(color)
     print(color2)
     print(not color2)
     print()
 
-    pawn = ch.Piece.PAWN
+    pawn = ch.PAWN
     print(pawn)
     print(pawn.to_string())
     print(pawn.get_index())
@@ -19,6 +19,7 @@ for i in range(n):
 
     square = ch.Square(12)
     square2 = ch.Square("E2")
+    square3 = ch.A3
     print(square2)
     print(square2.get_name())
     print(square2.get_index())
