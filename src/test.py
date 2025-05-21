@@ -61,8 +61,8 @@ def test_rust_chess():
 
     board3 = board.make_move_new(move) # Pawn move
     print(board3)
-    board3 = board.make_move_new(ch.Move.from_uci("g1f3"), check_legality=True) # Horse move
-    print(board3)
+    board.make_move(ch.Move.from_uci("g1f3"), check_legality=True) # Horse move
+    print(board)
     # board4 = board2.make_move_new(move2, check_legality=True) # Will panic
     # print(board4)
 
@@ -121,16 +121,15 @@ def test_chess():
     board.pop()
     board.push(chess.Move.from_uci("g1f3")) # Horse move
     print(board)
-    board.pop()
 
 if __name__ == "__main__":
     n = 1
-    # n = 100_000
+    n = 100_000
 
     for i in range(n):
-        test_rust_chess() # Takes about half the time of python chess :)
+        test_rust_chess() # Around 2.3 times faster python chess :)
 
     print("---------------------------------------")
 
     for i in range(n):
-        test_chess() # Biggest slow down is creating board from fen and displaying fen
+        test_chess() # Biggest slow down is creating with fen, displaying fen, legality, pushing moves
