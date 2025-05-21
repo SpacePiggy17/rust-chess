@@ -6,7 +6,7 @@ import typing
 
 class Board:
     r"""
-    Board class
+    Board class.
     """
     halfmove_clock: builtins.int
     fullmove_number: builtins.int
@@ -39,32 +39,131 @@ class Board:
 
 class Color:
     r"""
-    Color enum
+    Color enum class.
+    
+    ```python
+    >>> color = rust_chess.WHITE
+    
+    >>> color
+    True
+    >>> print(color)
+    WHITE
+    >>> color == rust_chess.BLACK
+    False
+    >>> color == (not rust_chess.BLACK)
+    True
+    ```
     """
+    def get_string(self) -> builtins.str:
+        r"""
+        Get the color as a string.
+        
+        ```python
+        >>> rust_chess.WHITE.get_string()
+        `WHITE`
+        >>> rust_chess.BLACK.get_string()
+        `BLACK`
+        ```
+        """
     def __str__(self) -> builtins.str:
         r"""
-        Get the color as a string
+        Get the color as a string.
+        
+        ```python
+        >>> print(rust_chess.WHITE)
+        WHITE
+        >>> print(rust_chess.BLACK)
+        BLACK
+        ```
+        """
+    def __bool__(self) -> builtins.bool:
+        r"""
+        Get the color as a boolean.
+        
+        ```python
+        >>> bool(rust_chess.WHITE)
+        True
+        >>> bool(rust_chess.BLACK)
+        False
+        ```
         """
     def __repr__(self) -> builtins.str:
         r"""
-        Get the color as a bool string
+        Get the color as a bool string.
+        
+        ```python
+        >>> rust_chess.WHITE
+        True
+        >>> rust_chess.BLACK
+        False
+        ```
+        """
+    def __eq__(self, other:typing.Any) -> builtins.bool:
+        r"""
+        Compare the color to another color or boolean.
+        
+        ```python
+        >>> rust_chess.WHITE == rust_chess.BLACK
+        False
+        >>> rust_chess.WHITE == True
+        True
+        ```
         """
 
 class Move:
     r"""
-    Move class
+    Move class.
+    
+    ```python
+    >>> move = rust_chess.Move(rust_chess.A2, rust_chess.A4)
+    >>> move
+    Move(a4, b1, None)
+    >>> print(move)
+    a4b1
+    >>> move.get_uci() == rust_chess.Move.from_uci("a4b1") // FIXME
+    True
+    >>> move.source
+    a2
+    >>> move.dest
+    a4
+    >>> move.promotion
+    
+    >>> move.promotion == None
+    True
+    ```
     """
     source: Square
     r"""
-    Get the source square of the move
+    Get the source square of the move.
+    
+    ```python
+    >>> move = rust_chess.Move(rust_chess.A2, rust_chess.A4)
+    >>> move.source
+    a2
+    ```
     """
     dest: Square
     r"""
-    Get the destination square of the move
+    Get the destination square of the move.
+    
+    
+    ```python
+    >>> move = rust_chess.Move(rust_chess.A2, rust_chess.A4)
+    >>> move.dest
+    a4
+    ```
     """
     promotion: typing.Optional[Piece]
     r"""
     Get the promotion piece of the move
+    
+    ```python
+    >>> move = rust_chess.Move(rust_chess.A2, rust_chess.A4)
+    >>> move.promotion
+    
+    >>> move.promotion == None
+    True
+    ```
     """
     def __new__(cls, source:Square, dest:Square, promotion:typing.Optional[Piece]=None) -> Move:
         r"""
@@ -73,100 +172,266 @@ class Move:
     @staticmethod
     def from_uci(uci:builtins.str) -> Move:
         r"""
-        Create a new move from a UCI string (e.g. "e2e4")
+        Create a new move from a UCI string (e.g. "e2e4").
+        
+        ```python
+        >>> rust_chess.Move.from_uci("e2e4")
+        Move(e2, e4, None)
+        ```
         """
     def get_uci(self) -> builtins.str:
         r"""
-        Get the UCI string representation of the move (e.g. "e2e4")
+        Get the UCI string representation of the move (e.g. "e2e4").
+        
+        ```python
+        >>> move = rust_chess.Move(rust_chess.A2, rust_chess.A4)
+        >>> move.get_uci()
+        'a2a4'
+        ```
         """
     def __str__(self) -> builtins.str:
         r"""
-        Get the UCI string representation of the move (e.g. "e2e4")
+        Get the UCI string representation of the move (e.g. "e2e4").
+        
+        ```python
+        >>> move = rust_chess.Move(rust_chess.A2, rust_chess.A4)
+        >>> print(move)
+        a2a4
+        ```
         """
     def __repr__(self) -> builtins.str:
         r"""
-        Get the debug representation of the move (e.g. "Move(e2, e4, None)")
+        Get the debug representation of the move (e.g. "Move(e2, e4, None)").
+        
+        ```python
+        >>> move = rust_chess.Move(rust_chess.A2, rust_chess.A4)
+        >>> move
+        Move(e2, e4, None)
+        ```
         """
 
 class Piece:
     r"""
-    Piece enum
+    Piece enum class.
+    
+    ```python
+    >>> piece = rust_chess.PAWN
+    
+    >>> print(piece)
+    PAWN
+    >>> piece == rust_chess.PAWN
+    True
+    >>> piece == rust_chess.KNIGHT
+    False
+    >>> piece.get_index()
+    0
+    >>> piece < rust_chess.KNIGHT
+    True
+    ```
     """
     def get_index(self) -> builtins.int:
         r"""
-        Get the index of the piece (0-5)
+        Get the index of the piece (0-5).
+        
+        ```python
+        >>> rust_chess.BISHOP.get_index()
+        2
+        ```
         """
-    def to_string(self) -> builtins.str: ...
+    def get_string(self) -> builtins.str:
+        r"""
+        Convert the piece to a string.
+        
+        ```python
+        >>> rust_chess.PAWN.get_string()
+        PAWN
+        ```
+        """
     def __str__(self) -> builtins.str:
         r"""
-        Convert the piece to a string
+        Convert the piece to a string.
+        
+        ```python
+        >>> print(rust_chess.PAWN)
+        PAWN
+        ```
         """
     def __repr__(self) -> builtins.str:
         r"""
-        Convert the piece to a string
+        Convert the piece to a string.
+        
+        ```python
+        >>> rust_chess.PAWN
+        PAWN
+        ```
         """
 
 class Square:
     r"""
-    Square class
+    Square class.
+    
+    ```python
+    >>> square = rust_chess.Square(0)
+    >>> square
+    a1
+    >>> print(square)
+    a1
+    >>> square == rust_chess.Square("a1")
+    True
+    >>> square == rust_chess.A1
+    True
+    >>> square.get_index()
+    0
+    >>> rust_chess.A4 == 24
+    True
+    >>> rust_chess.G4.get_rank()
+    3
+    >>> rust_chess.G4.get_file()
+    6
+    ```
     """
     def __new__(cls, square:typing.Any) -> Square:
         r"""
-        Creates a new square from an integer (0-63) or a string (e.g. "e4")
+        Creates a new square from an integer (0-63) or a string (e.g. "e4").
+        
+        ```python
+        >>> rust_chess.Square(0)
+        a1
+        >>> rust_chess.Square("e4")
+        e4
+        ```
         """
     def get_index(self) -> builtins.int:
         r"""
-        Get the index of the square (0-63)
+        Get the index of the square (0-63).
+        
+        ```python
+        >>> rust_chess.Square("e4").get_index()
+        28
+        ```
         """
     @staticmethod
     def from_index(index:builtins.int) -> Square:
         r"""
-        Create a new square from an index
+        Create a new square from an index.
+        
+        ```python
+        >>> rust_chess.Square.from_index(0)
+        a1
+        ```
         """
     @staticmethod
     def from_rank_file(rank:builtins.int, file:builtins.int) -> Square:
         r"""
-        Create a new square from a rank and file
+        Create a new square from a rank and file.
+        
+        ```python
+        >>> rust_chess.Square.from_rank_file(0, 3)
+        d1
+        ```
         """
     def get_name(self) -> builtins.str:
         r"""
-        Get the name of the square (e.g. "e4")
+        Get the name of the square (e.g. "e4").
+        
+        ```python
+        >>> rust_chess.E4.get_name()
+        'e4'
+        ```
         """
     def __str__(self) -> builtins.str:
         r"""
-        Get the name of the square (e.g. "e4")
+        Get the name of the square (e.g. "e4"),
+        
+        ```python
+        >>> print(rust_chess.E4)
+        e4
+        ```
         """
     def __repr__(self) -> builtins.str:
         r"""
-        Get the name of the square (e.g. "e4")
+        Get the name of the square (e.g. "e4").
+        
+        ```python
+        >>> rust_chess.E4
+        e4
+        ```
         """
     @staticmethod
     def from_name(square_name:builtins.str) -> Square:
         r"""
-        Create a new square from the name (e.g. "e4")
+        Create a new square from a name (e.g. "e4").
+        
+        ```python
+        >>> rust_chess.Square.from_name("d2")
+        d2
+        ```
+        """
+    def __eq__(self, other:typing.Any) -> builtins.bool:
+        r"""
+        Compare the square to another square or integer.
+        
+        ```python
+        >>> rust_chess.Square("d2") == rust_chess.D2
+        True
+        >>> rust_chess.Square("d2") == 11
+        True
+        ```
         """
     def get_rank(self) -> builtins.int:
         r"""
-        Get the rank of the square (0-7)
+        Get the rank of the square as an integer (0-7).
+        
+        ```python
+        >>> rust_chess.E4.get_rank()
+        3
+        ```
         """
     def get_file(self) -> builtins.int:
         r"""
-        Get the file of the square (0-7)
+        Get the file of the square as an integer (0-7).
+        
+        ```python
+        >>> rust_chess.E4.get_file()
+        4
+        ```
         """
     def up(self) -> typing.Optional[Square]:
         r"""
-        Returns the square above, otherwise None
+        Returns the square above, otherwise None.
+        
+        ```python
+        >>> rust_chess.H5.up()
+        h6
+        ```
         """
     def down(self) -> typing.Optional[Square]:
         r"""
-        Returns the square below, otherwise None
+        Returns the square below, otherwise None.
+        
+        ```python
+        >>> rust_chess.H5.down()
+        h4
+        ```
         """
     def left(self) -> typing.Optional[Square]:
         r"""
-        Returns the square to the left, otherwise None
+        Returns the square to the left, otherwise None.
+        
+        ```python
+        >>> rust_chess.H5.left()
+        g5
+        ```
         """
     def right(self) -> typing.Optional[Square]:
         r"""
         Returns the square to the right, otherwise None
+        
+        ```python
+        >>> rust_chess.H5.right()
+        
+        >>> rust_chess.H5.right() == None
+        True
+        ```
         """
 

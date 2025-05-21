@@ -4,7 +4,12 @@
 use std::str::FromStr;
 
 use pyo3::{exceptions::PyValueError, prelude::*, types::PyAny};
-use pyo3_stub_gen::{define_stub_info_gatherer, derive::{gen_stub_pyclass, gen_stub_pymethods}};
+use pyo3_stub_gen::{
+    define_stub_info_gatherer,
+    derive::{gen_stub_pyclass, gen_stub_pymethods},
+};
+
+// TODO: Figure out auto stub for constants
 
 // Color constants
 const WHITE: PyColor = PyColor(chess::Color::White);
@@ -20,7 +25,20 @@ const QUEEN: PyPiece = PyPiece(chess::Piece::Queen);
 const KING: PyPiece = PyPiece(chess::Piece::King);
 const PIECES: [PyPiece; 6] = [PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING];
 
-/// Color enum
+/// Color enum class.
+///
+/// ```python
+/// >>> color = rust_chess.WHITE
+///
+/// >>> color
+/// True
+/// >>> print(color)
+/// WHITE
+/// >>> color == rust_chess.BLACK
+/// False
+/// >>> color == (not rust_chess.BLACK)
+/// True
+/// ```
 #[gen_stub_pyclass]
 #[pyclass(name = "Color")]
 #[derive(PartialOrd, PartialEq, Eq, Copy, Clone, Hash)]
@@ -29,9 +47,16 @@ struct PyColor(chess::Color);
 #[gen_stub_pymethods]
 #[pymethods]
 impl PyColor {
-    /// Get the color as a string
+    /// Get the color as a string.
+    ///
+    /// ```python
+    /// >>> rust_chess.WHITE.get_string()
+    /// `WHITE`
+    /// >>> rust_chess.BLACK.get_string()
+    /// `BLACK`
+    /// ```
     #[inline]
-    fn __str__(&self) -> String {
+    fn get_string(&self) -> String {
         if *self == WHITE {
             "WHITE".to_string()
         } else {
@@ -39,18 +64,85 @@ impl PyColor {
         }
     }
 
-    /// Get the color as a bool string
+    /// Get the color as a string.
+    ///
+    /// ```python
+    /// >>> print(rust_chess.WHITE)
+    /// WHITE
+    /// >>> print(rust_chess.BLACK)
+    /// BLACK
+    /// ```
+    #[inline]
+    fn __str__(&self) -> String {
+        self.get_string()
+    }
+
+    /// Get the color as a boolean.
+    ///
+    /// ```python
+    /// >>> bool(rust_chess.WHITE)
+    /// True
+    /// >>> bool(rust_chess.BLACK)
+    /// False
+    /// ```
+    #[inline]
+    fn __bool__(&self) -> bool {
+        *self == WHITE
+    }
+
+    /// Get the color as a bool string.
+    ///
+    /// ```python
+    /// >>> rust_chess.WHITE
+    /// True
+    /// >>> rust_chess.BLACK
+    /// False
+    /// ```
     #[inline]
     fn __repr__(&self) -> String {
-        if *self == WHITE {
+        if self.__bool__() {
             "True".to_string()
         } else {
             "False".to_string()
         }
     }
+
+    /// Compare the color to another color or boolean.
+    ///
+    /// ```python
+    /// >>> rust_chess.WHITE == rust_chess.BLACK
+    /// False
+    /// >>> rust_chess.WHITE == True
+    /// True
+    /// ```
+    #[inline]
+    fn __eq__(&self, other: &Bound<'_, PyAny>) -> bool {
+        if let Ok(other_bool) = other.extract::<bool>() {
+            self.__bool__() == other_bool
+        } else if let Ok(other_color) = other.extract::<PyColor>() {
+            self.__bool__() == other_color.__bool__()
+        } else {
+            false
+        }
+    }
 }
 
-/// Piece enum
+/// Piece enum class.
+///
+/// ```python
+/// >>> piece = rust_chess.PAWN
+///
+/// >>> print(piece)
+/// PAWN
+/// >>> piece == rust_chess.PAWN
+/// True
+/// >>> piece == rust_chess.KNIGHT
+/// False
+/// >>> piece.get_index()
+/// 0
+/// >>> piece < rust_chess.KNIGHT
+/// True
+/// ```
 #[gen_stub_pyclass]
 #[pyclass(name = "Piece")]
 #[derive(PartialEq, Eq, Ord, PartialOrd, Copy, Clone, Hash)]
@@ -59,17 +151,27 @@ struct PyPiece(chess::Piece);
 #[gen_stub_pymethods]
 #[pymethods]
 impl PyPiece {
-    /// Get the index of the piece (0-5)
+    /// Get the index of the piece (0-5).
+    ///
+    /// ```python
+    /// >>> rust_chess.BISHOP.get_index()
+    /// 2
+    /// ```
     #[inline]
     #[allow(clippy::cast_possible_truncation)]
     fn get_index(&self) -> u8 {
         self.0.to_index() as u8
     }
 
-    // Convert the piece to a string
+    /// Convert the piece to a string.
+    ///
+    /// ```python
+    /// >>> rust_chess.PAWN.get_string()
+    /// PAWN
+    /// ```
     #[inline]
     #[allow(clippy::wrong_self_convention, clippy::inherent_to_string)]
-    fn to_string(&self) -> String {
+    fn get_string(&self) -> String {
         match *self {
             PAWN => "PAWN".to_string(),
             KNIGHT => "KNIGHT".to_string(),
@@ -80,20 +182,52 @@ impl PyPiece {
         }
     }
 
-    /// Convert the piece to a string
+    /// Convert the piece to a string.
+    ///
+    /// ```python
+    /// >>> print(rust_chess.PAWN)
+    /// PAWN
+    /// ```
     #[inline]
     fn __str__(&self) -> String {
-        self.to_string()
+        self.get_string()
     }
 
-    /// Convert the piece to a string
+    /// Convert the piece to a string.
+    ///
+    /// ```python
+    /// >>> rust_chess.PAWN
+    /// PAWN
+    /// ```
     #[inline]
     fn __repr__(&self) -> String {
-        self.to_string()
+        self.get_string()
     }
+
+    // TODO: Implement __lt__, __le__, __gt__, __ge__ for comparison with mega compare
 }
 
-/// Square class
+/// Square class.
+///
+/// ```python
+/// >>> square = rust_chess.Square(0)
+/// >>> square
+/// a1
+/// >>> print(square)
+/// a1
+/// >>> square == rust_chess.Square("a1")
+/// True
+/// >>> square == rust_chess.A1
+/// True
+/// >>> square.get_index()
+/// 0
+/// >>> rust_chess.A4 == 24
+/// True
+/// >>> rust_chess.G4.get_rank()
+/// 3
+/// >>> rust_chess.G4.get_file()
+/// 6
+/// ```
 #[gen_stub_pyclass]
 #[pyclass(name = "Square")]
 #[derive(PartialEq, Ord, Eq, PartialOrd, Copy, Clone, Default, Hash)]
@@ -102,7 +236,14 @@ struct PySquare(chess::Square);
 #[gen_stub_pymethods]
 #[pymethods]
 impl PySquare {
-    /// Creates a new square from an integer (0-63) or a string (e.g. "e4")
+    /// Creates a new square from an integer (0-63) or a string (e.g. "e4").
+    ///
+    /// ```python
+    /// >>> rust_chess.Square(0)
+    /// a1
+    /// >>> rust_chess.Square("e4")
+    /// e4
+    /// ```
     #[new]
     fn new(square: &Bound<'_, PyAny>) -> PyResult<Self> {
         // Check if the input is an integer
@@ -119,13 +260,23 @@ impl PySquare {
         ))
     }
 
-    /// Get the index of the square (0-63)
+    /// Get the index of the square (0-63).
+    ///
+    /// ```python
+    /// >>> rust_chess.Square("e4").get_index()
+    /// 28
+    /// ```
     #[inline]
     fn get_index(&self) -> u8 {
         self.0.to_int()
     }
 
-    /// Create a new square from an index
+    /// Create a new square from an index.
+    ///
+    /// ```python
+    /// >>> rust_chess.Square.from_index(0)
+    /// a1
+    /// ```
     #[inline]
     #[staticmethod]
     fn from_index(index: u8) -> PyResult<Self> {
@@ -137,8 +288,12 @@ impl PySquare {
         Ok(PySquare(unsafe { chess::Square::new(index) }))
     }
 
-    // TODO: from_rank_file
-    /// Create a new square from a rank and file
+    /// Create a new square from a rank and file.
+    ///
+    /// ```python
+    /// >>> rust_chess.Square.from_rank_file(0, 3)
+    /// d1
+    /// ```
     #[inline]
     #[staticmethod]
     fn from_rank_file(rank: u8, file: u8) -> PyResult<Self> {
@@ -153,26 +308,46 @@ impl PySquare {
         )))
     }
 
-    /// Get the name of the square (e.g. "e4")
+    /// Get the name of the square (e.g. "e4").
+    ///
+    /// ```python
+    /// >>> rust_chess.E4.get_name()
+    /// 'e4'
+    /// ```
     #[inline]
     fn get_name(&self) -> String {
         // Convert the square to a string using the chess crate
         self.0.to_string()
     }
 
-    /// Get the name of the square (e.g. "e4")
+    /// Get the name of the square (e.g. "e4"),
+    ///
+    /// ```python
+    /// >>> print(rust_chess.E4)
+    /// e4
+    /// ```
     #[inline]
     fn __str__(&self) -> String {
         self.get_name()
     }
 
-    /// Get the name of the square (e.g. "e4")
+    /// Get the name of the square (e.g. "e4").
+    ///
+    /// ```python
+    /// >>> rust_chess.E4
+    /// e4
+    /// ```
     #[inline]
     fn __repr__(&self) -> String {
         self.get_name()
     }
 
-    /// Create a new square from the name (e.g. "e4")
+    /// Create a new square from a name (e.g. "e4").
+    ///
+    /// ```python
+    /// >>> rust_chess.Square.from_name("d2")
+    /// d2
+    /// ```
     #[inline]
     #[staticmethod]
     fn from_name(square_name: &str) -> PyResult<Self> {
@@ -183,44 +358,113 @@ impl PySquare {
             .map_err(|_| PyValueError::new_err("Invalid square"))
     }
 
-    /// Get the rank of the square (0-7)
+    /// Compare the square to another square or integer.
+    ///
+    /// ```python
+    /// >>> rust_chess.Square("d2") == rust_chess.D2
+    /// True
+    /// >>> rust_chess.Square("d2") == 11
+    /// True
+    /// ```
+    #[inline]
+    fn __eq__(&self, other: &Bound<'_, PyAny>) -> bool {
+        if let Ok(other_index) = other.extract::<u8>() {
+            self.get_index() == other_index
+        } else if let Ok(other_square) = other.extract::<PySquare>() {
+            self.0 == other_square.0
+        } else {
+            false
+        }
+    }
+
+    /// Get the rank of the square as an integer (0-7).
+    ///
+    /// ```python
+    /// >>> rust_chess.E4.get_rank()
+    /// 3
+    /// ```
     #[inline]
     fn get_rank(&self) -> u8 {
         self.0.get_rank() as u8
     }
 
-    /// Get the file of the square (0-7)
+    /// Get the file of the square as an integer (0-7).
+    ///
+    /// ```python
+    /// >>> rust_chess.E4.get_file()
+    /// 4
+    /// ```
     #[inline]
     fn get_file(&self) -> u8 {
         self.0.get_file() as u8
     }
 
-    /// Returns the square above, otherwise None
+    /// Returns the square above, otherwise None.
+    ///
+    /// ```python
+    /// >>> rust_chess.H5.up()
+    /// h6
+    /// ```
     #[inline]
     fn up(&self) -> Option<Self> {
         self.0.up().map(PySquare)
     }
 
-    /// Returns the square below, otherwise None
+    /// Returns the square below, otherwise None.
+    ///
+    /// ```python
+    /// >>> rust_chess.H5.down()
+    /// h4
+    /// ```
     #[inline]
     fn down(&self) -> Option<Self> {
         self.0.down().map(PySquare)
     }
 
-    /// Returns the square to the left, otherwise None
+    /// Returns the square to the left, otherwise None.
+    ///
+    /// ```python
+    /// >>> rust_chess.H5.left()
+    /// g5
+    /// ```
     #[inline]
     fn left(&self) -> Option<Self> {
         self.0.left().map(PySquare)
     }
 
     /// Returns the square to the right, otherwise None
+    ///
+    /// ```python
+    /// >>> rust_chess.H5.right()
+    ///
+    /// >>> rust_chess.H5.right() == None
+    /// True
+    /// ```
     #[inline]
     fn right(&self) -> Option<Self> {
         self.0.right().map(PySquare)
     }
 }
 
-/// Move class
+/// Move class.
+///
+/// ```python
+/// >>> move = rust_chess.Move(rust_chess.A2, rust_chess.A4)
+/// >>> move
+/// Move(a4, b1, None)
+/// >>> print(move)
+/// a4b1
+/// >>> move.get_uci() == rust_chess.Move.from_uci("a4b1") // FIXME
+/// True
+/// >>> move.source
+/// a2
+/// >>> move.dest
+/// a4
+/// >>> move.promotion
+/// 
+/// >>> move.promotion == None
+/// True
+/// ```
 #[gen_stub_pyclass]
 #[pyclass(name = "Move")]
 #[derive(Clone, Copy, Eq, PartialOrd, PartialEq, Default, Hash)]
@@ -243,7 +487,12 @@ impl PyMove {
 
     // TODO: from_san
 
-    /// Create a new move from a UCI string (e.g. "e2e4")
+    /// Create a new move from a UCI string (e.g. "e2e4").
+    /// 
+    /// ```python
+    /// >>> rust_chess.Move.from_uci("e2e4")
+    /// Move(e2, e4, None)
+    /// ```
     #[inline]
     #[staticmethod]
     fn from_uci(uci: &str) -> PyResult<Self> {
@@ -254,37 +503,68 @@ impl PyMove {
             .map_err(|_| PyValueError::new_err("Invalid UCI move"))
     }
 
-    /// Get the UCI string representation of the move (e.g. "e2e4")
+    /// Get the UCI string representation of the move (e.g. "e2e4").
+    /// 
+    /// ```python
+    /// >>> move = rust_chess.Move(rust_chess.A2, rust_chess.A4)
+    /// >>> move.get_uci()
+    /// 'a2a4'
+    /// ```
     #[inline]
     fn get_uci(&self) -> String {
         // Convert the move to a UCI string using the chess crate
         self.0.to_string()
     }
 
-    /// Get the UCI string representation of the move (e.g. "e2e4")
+    /// Get the UCI string representation of the move (e.g. "e2e4").
+    /// 
+    /// ```python
+    /// >>> move = rust_chess.Move(rust_chess.A2, rust_chess.A4)
+    /// >>> print(move)
+    /// a2a4
+    /// ```
     #[inline]
     fn __str__(&self) -> String {
         self.get_uci()
     }
 
-    /// Get the debug representation of the move (e.g. "Move(e2, e4, None)")
+    /// Get the debug representation of the move (e.g. "Move(e2, e4, None)").
+    /// 
+    /// ```python
+    /// >>> move = rust_chess.Move(rust_chess.A2, rust_chess.A4)
+    /// >>> move
+    /// Move(e2, e4, None)
+    /// ```
     fn __repr__(&self) -> String {
         format!(
             "Move({}, {}, {:?})",
             self.0.get_source(),
             self.0.get_dest(),
-            self.0.get_promotion()
+            self.0.get_promotion() // FIXME: Don't output Some(<PyPiece>)
         )
     }
 
-    /// Get the source square of the move
+    /// Get the source square of the move.
+    /// 
+    /// ```python
+    /// >>> move = rust_chess.Move(rust_chess.A2, rust_chess.A4)
+    /// >>> move.source
+    /// a2
+    /// ```
     #[inline]
     #[getter]
     fn get_source(&self) -> PySquare {
         PySquare(self.0.get_source())
     }
 
-    /// Get the destination square of the move
+    /// Get the destination square of the move.
+    ///
+    ///
+    /// ```python
+    /// >>> move = rust_chess.Move(rust_chess.A2, rust_chess.A4)
+    /// >>> move.dest
+    /// a4
+    /// ```
     #[inline]
     #[getter]
     fn get_dest(&self) -> PySquare {
@@ -292,14 +572,40 @@ impl PyMove {
     }
 
     /// Get the promotion piece of the move
+    /// 
+    /// ```python
+    /// >>> move = rust_chess.Move(rust_chess.A2, rust_chess.A4)
+    /// >>> move.promotion
+    /// 
+    /// >>> move.promotion == None
+    /// True
+    /// ```
     #[inline]
     #[getter]
     fn get_promotion(&self) -> Option<PyPiece> {
         self.0.get_promotion().map(PyPiece)
     }
+
+    // Fixme
+    // TODO: Don't use get_uci
+    // /// Compare the move to another move.
+    // /// 
+    // /// ```python
+    // /// >>> move = rust_chess.Move(rust_chess.A2, rust_chess.A4)
+    // /// >>> move == rust_chess.Move.from_uci("a2b4")
+    // /// True
+    // /// ```
+    // #[inline]
+    // fn __eq__(&self, other: &Bound<'_, PyAny>) -> bool {
+    //     if let Ok(other_move) = other.extract::<PyMove>() {
+    //         self.get_uci() == other_move.get_uci()
+    //     } else {
+    //         false
+    //     }
+    // }
 }
 
-/// Board class
+/// Board class.
 #[gen_stub_pyclass]
 #[pyclass(name = "Board")]
 #[derive(Copy, Clone, PartialEq)]
@@ -311,7 +617,6 @@ struct PyBoard {
     fullmove_number: u8, // Fullmove number (increments after black moves)
                          // TODO: Incremental Zobrist hash
 }
-
 #[gen_stub_pymethods]
 #[pymethods]
 impl PyBoard {
@@ -375,8 +680,8 @@ impl PyBoard {
             .map_err(|_| PyValueError::new_err("Invalid fullmove number"))?;
 
         // Parse the board using the chess crate
-        let board =
-            chess::Board::from_str(fen).map_err(|e| PyValueError::new_err(format!("Invalid FEN: {e}")))?;
+        let board = chess::Board::from_str(fen)
+            .map_err(|e| PyValueError::new_err(format!("Invalid FEN: {e}")))?;
 
         Ok(PyBoard {
             board,
