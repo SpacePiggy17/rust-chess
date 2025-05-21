@@ -101,11 +101,11 @@ class Board:
         """
     def make_move_new(self, chess_move:Move, check_legality:builtins.bool=False) -> Board:
         r"""
-        Makes a move onto a new board
+        Makes a move onto a new board (around 2x faster than `make_move`)
         """
     def make_move(self, chess_move:Move, check_legality:builtins.bool=False) -> None:
         r"""
-        Makes a move on the current board
+        Makes a move on the current board (around 2x slower than `make_move_new`)
         """
 
 class Color:
@@ -186,7 +186,7 @@ class Move:
     Move class.
     
     ```python
-    >>> move = rust_chess.Move(rust_chess.A2, rust_chess.A4)
+    >>> move = rust_chess.Move(rust_chess.A4, rust_chess.B1)
     >>> move
     Move(a4, b1, None)
     >>> print(move)

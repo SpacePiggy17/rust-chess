@@ -866,7 +866,7 @@ impl PyBoard {
             || self.get_piece_type_on(chess_move.get_dest()).is_some() // Capture (moving piece onto other piece)
     }
 
-    /// Makes a move onto a new board
+    /// Makes a move onto a new board (around 2x faster than `make_move`)
     #[pyo3(signature = (chess_move, check_legality = false))]
     fn make_move_new(&self, chess_move: PyMove, check_legality: bool) -> PyResult<PyBoard> {
         // If we are checking legality, check if the move is legal
@@ -877,18 +877,19 @@ impl PyBoard {
         // Make the move onto a new board using the chess crate
         let new_board: chess::Board = self.board.make_move_new(chess_move.0);
 
-        // Update the halfmove clock and fullmove number
-        let mut halfmove_clock: u8 = self.halfmove_clock + 1;
+        // Reset the halfmove clock if the move zeroes (is a capture or pawn move and therefore "zeroes" the halfmove clock)
+        let halfmove_clock: u8 = if self.is_zeroing(chess_move) {
+            0
+        } else {
+            self.halfmove_clock + 1
+        };
+
+        // Increment fullmove number if black moves
         let fullmove_number: u8 = if self.board.side_to_move() == chess::Color::Black {
-            self.fullmove_number + 1 // Increment fullmove number if black moves
+            self.fullmove_number + 1
         } else {
             self.fullmove_number
         };
-
-        // Reset the halfmove clock if the move zeroes (is a capture or pawn move and therefore "zeroes" the halfmove clock)
-        if self.is_zeroing(chess_move) {
-            halfmove_clock = 0;
-        }
 
         Ok(PyBoard {
             board: new_board,
@@ -898,17 +899,32 @@ impl PyBoard {
         })
     }
 
-    /// Makes a move on the current board
+    /// Makes a move on the current board (around 2x slower than `make_move_new`)
     #[pyo3(signature = (chess_move, check_legality = false))]
     fn make_move(&mut self, chess_move: PyMove, check_legality: bool) -> PyResult<()> {
-        // Make the move onto a new board
-        let board = self.make_move_new(chess_move, check_legality)?;
+        // If we are checking legality, check if the move is legal
+        if check_legality && !self.is_legal_move(chess_move) {
+            return Err(PyValueError::new_err("Illegal move"));
+        }
+
+        // Make the move onto a new board using the chess crate
+        let temp_board: chess::Board = self.board.make_move_new(chess_move.0);
+
+        // Reset the halfmove clock if the move zeroes (is a capture or pawn move and therefore "zeroes" the halfmove clock)
+        self.halfmove_clock = if self.is_zeroing(chess_move) {
+            0
+        } else {
+            self.halfmove_clock + 1
+        };
+
+        // Increment fullmove number if black moves
+        if self.board.side_to_move() == chess::Color::Black {
+            self.fullmove_number += 1;
+        }
 
         // Update the current board
-        self.board = board.board;
-        self.move_gen = board.move_gen;
-        self.halfmove_clock = board.halfmove_clock;
-        self.fullmove_number = board.fullmove_number;
+        self.board = temp_board;
+        self.move_gen = chess::MoveGen::new_legal(&self.board);
 
         Ok(())
     }
