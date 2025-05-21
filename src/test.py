@@ -1,6 +1,7 @@
 import rust_chess as ch
 import chess
 
+
 def test_rust_chess():
     color = ch.WHITE
     color2 = ch.COLORS[1]
@@ -11,7 +12,7 @@ def test_rust_chess():
 
     pawn = ch.PAWN
     print(pawn)
-    print(pawn.to_string())
+    print(pawn.get_string())
     print(pawn.get_index())
     print()
 
@@ -39,15 +40,40 @@ def test_rust_chess():
     print()
 
     board = ch.Board()
-    board = ch.Board("rnbqkbnr/ppp1p1pp/5p2/3p4/4P3/3P4/PPP1KPPP/RNBQ1BNR b kq - 1 3")
-    print(board)
-    print(board.get_fen())
-    print(board.halfmove_clock)
-    print(board.fullmove_number)
-    print(board.is_fifty_moves())
-    print(board.is_check())
+    board2 = ch.Board("rnbqkbnr/ppp1p1pp/5p2/3p4/4P3/3P4/PPP1KPPP/RNBQ1BNR b kq - 1 3")
+    print(board2)
+    print(board2.get_fen())
+    print(board2.halfmove_clock)
+    print(board2.fullmove_number)
+    print(board2.turn)
+    print(board2.is_fifty_moves())
+    print(board2.is_check())
+    print(board.is_legal_move(move))
+    print(board2.is_legal_move(move2))
+
+    print(board.is_zeroing(move)) # Pawn move
+    print(board2.is_zeroing(ch.Move.from_uci("e2e3")))
+
+    print(board.get_piece_type_on(ch.E2))
+    print(board.get_color_on(ch.E2))
+    print(board.get_piece_on(ch.E4))
+    print(board2.get_piece_on(ch.E2))
+
+    board3 = board.make_move_new(move) # Pawn move
+    print(board3)
+    board3 = board.make_move_new(ch.Move.from_uci("g1f3"), check_legality=True) # Horse move
+    print(board3)
+    # board4 = board2.make_move_new(move2, check_legality=True) # Will panic
+    # print(board4)
 
 def test_chess():
+    color = chess.WHITE
+    color2 = chess.COLORS[1]
+    print(color)
+    print(color2)
+    print(not color2)
+    print()
+
     pawn = chess.PAWN
     print(pawn)
     print()
@@ -62,7 +88,7 @@ def test_chess():
     print()
 
     move = chess.Move(chess.Square(12), chess.Square(28))
-    move2 = chess.Move.from_uci("e2e4")
+    move2 = chess.Move.from_uci("e8d7") # King move
     print(move2)
     print(move2.uci())
     print(move2.from_square)
@@ -71,22 +97,40 @@ def test_chess():
     print()
 
     board = chess.Board()
-    board = chess.Board("rnbqkbnr/ppp1p1pp/5p2/3p4/4P3/3P4/PPP1KPPP/RNBQ1BNR b kq - 1 3")
+    board2 = chess.Board("rnbqkbnr/ppp1p1pp/5p2/3p4/4P3/3P4/PPP1KPPP/RNBQ1BNR b kq - 1 3")
+    print(board2)
+    print(board2.fen())
+    print(board2.halfmove_clock)
+    print(board2.fullmove_number)
+    print(board2.turn)
+    print(board2.is_fifty_moves())
+    print(board2.is_check())
+    print(board.is_legal(move))
+    print(board2.is_legal(move2))
+
+    print(board.is_zeroing(move)) # Pawn move
+    print(board2.is_zeroing(chess.Move.from_uci("e8d7"))) # King move
+
+    print(board.piece_type_at(chess.E2))
+    print(board.color_at(chess.E2))
+    print(board.piece_at(chess.E4))
+    print(board2.piece_at(chess.E2))
+
+    board.push(move) # Pawn move
     print(board)
-    print(board.fen())
-    print(board.halfmove_clock)
-    print(board.fullmove_number)
-    print(board.is_fifty_moves())
-    print(board.is_check())
+    board.pop()
+    board.push(chess.Move.from_uci("g1f3")) # Horse move
+    print(board)
+    board.pop()
 
 if __name__ == "__main__":
     n = 1
     # n = 100_000
 
     for i in range(n):
-        test_rust_chess()
+        test_rust_chess() # Takes about half the time of python chess :)
 
     print("---------------------------------------")
 
     for i in range(n):
-        test_chess()
+        test_chess() # Biggest slow down is creating board from fen and displaying fen

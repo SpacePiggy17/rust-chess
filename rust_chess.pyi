@@ -6,21 +6,64 @@ import typing
 
 class Board:
     r"""
-    Board class.
+    Board class
     """
     halfmove_clock: builtins.int
+    r"""
+    Get the halfmove clock.
+    
+    ```python
+    >>> rust_chess.Board().halfmove_clock
+    0
+    ```
+    """
     fullmove_number: builtins.int
+    r"""
+    Get the fullmove number.
+    
+    ```python
+    >>> rust_chess.Board().fullmove_number
+    1
+    ```
+    """
+    turn: Color
+    r"""
+    Get the current player to move
+    """
+    en_passant: typing.Optional[Square]
+    r"""
+    Get the en passant square, otherwise None
+    """
     def __new__(cls, fen:typing.Optional[builtins.str]=None) -> Board:
         r"""
         Create a new board from a FEN string, otherwise default to the starting position
         """
     def get_fen(self) -> builtins.str:
         r"""
-        Get the FEN string representation of the board
+        Get the FEN string representation of the board.
+        
+        ```python
+        >>> rust_chess.Board().get_fen()
+        'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+        ```
         """
     def __str__(self) -> builtins.str:
         r"""
-        Get the FEN string representation of the board
+        Get the FEN string representation of the board.
+        
+        ```python
+        >>> print(rust_chess.Board())
+        rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+        ```
+        """
+    def __repr__(self) -> builtins.str:
+        r"""
+        Get the FEN string representation of the board.
+        
+        ```python
+        >>> print(rust_chess.Board())
+        rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+        ```
         """
     @staticmethod
     def from_fen(fen:builtins.str) -> Board:
@@ -35,6 +78,34 @@ class Board:
     def is_check(self) -> builtins.bool:
         r"""
         Checks if the side to move is in check
+        """
+    def get_piece_type_on(self, square:Square) -> typing.Optional[PieceType]:
+        r"""
+        Get the piece type on a square, otherwise None
+        """
+    def get_color_on(self, square:Square) -> typing.Optional[Color]:
+        r"""
+        Get the color of the piece on a square, otherwise None
+        """
+    def get_piece_on(self, square:Square) -> typing.Optional[Piece]:
+        r"""
+        Get the piece on a square, otherwise None
+        """
+    def is_legal_move(self, chess_move:Move) -> builtins.bool:
+        r"""
+        Check if the move is legal (supposedly slow according to the chess crate)
+        """
+    def is_zeroing(self, chess_move:Move) -> builtins.bool:
+        r"""
+        Check if a move is a capture or a pawn move (doesn't check for legality)
+        """
+    def make_move_new(self, chess_move:Move, check_legality:builtins.bool=False) -> Board:
+        r"""
+        Makes a move onto a new board
+        """
+    def make_move(self, chess_move:Move, check_legality:builtins.bool=False) -> None:
+        r"""
+        Makes a move on the current board
         """
 
 class Color:
@@ -60,9 +131,9 @@ class Color:
         
         ```python
         >>> rust_chess.WHITE.get_string()
-        `WHITE`
+        'WHITE'
         >>> rust_chess.BLACK.get_string()
-        `BLACK`
+        'BLACK'
         ```
         """
     def __str__(self) -> builtins.str:
@@ -120,6 +191,8 @@ class Move:
     Move(a4, b1, None)
     >>> print(move)
     a4b1
+    >>> rust_chess.Move("a2a1q")
+    Move(a2, a1, QUEEN)
     >>> move.get_uci() == rust_chess.Move.from_uci("a4b1") // FIXME
     True
     >>> move.source
@@ -153,7 +226,7 @@ class Move:
     a4
     ```
     """
-    promotion: typing.Optional[Piece]
+    promotion: typing.Optional[PieceType]
     r"""
     Get the promotion piece of the move
     
@@ -165,9 +238,9 @@ class Move:
     True
     ```
     """
-    def __new__(cls, source:Square, dest:Square, promotion:typing.Optional[Piece]=None) -> Move:
+    def __new__(cls, source_or_uci:typing.Any, dest:typing.Optional[Square]=None, promotion:typing.Optional[PieceType]=None) -> Move:
         r"""
-        Create a new move from a source square, destination square, and optional promotion piece
+        Create a new move from a source, destination, and optional promotion piece or UCI string.
         """
     @staticmethod
     def from_uci(uci:builtins.str) -> Move:
@@ -212,13 +285,46 @@ class Move:
 
 class Piece:
     r"""
-    Piece enum class.
+    Piece class
+    """
+    piece_type: PieceType
+    r"""
+    Get the piece type of the piece
+    """
+    color: Color
+    r"""
+    Get the color of the piece
+    """
+    def __new__(cls, piece_type:PieceType, color:Color) -> Piece:
+        r"""
+        Create a new piece from a piece type and color
+        """
+    def get_index(self) -> builtins.int:
+        r"""
+        Get the index of the piece (0-5)
+        """
+    def get_string(self) -> builtins.str:
+        r"""
+        Convert the piece to a string
+        """
+    def __str__(self) -> builtins.str:
+        r"""
+        Convert the piece to a string
+        """
+    def __repr__(self) -> builtins.str:
+        r"""
+        Convert the piece to a string
+        """
+
+class PieceType:
+    r"""
+    Piece type enum class.
     
     ```python
     >>> piece = rust_chess.PAWN
     
     >>> print(piece)
-    PAWN
+    P
     >>> piece == rust_chess.PAWN
     True
     >>> piece == rust_chess.KNIGHT
@@ -238,13 +344,13 @@ class Piece:
         2
         ```
         """
-    def get_string(self) -> builtins.str:
+    def get_string(self, color:Color=...) -> builtins.str:
         r"""
         Convert the piece to a string.
         
         ```python
         >>> rust_chess.PAWN.get_string()
-        PAWN
+        P
         ```
         """
     def __str__(self) -> builtins.str:
@@ -253,7 +359,7 @@ class Piece:
         
         ```python
         >>> print(rust_chess.PAWN)
-        PAWN
+        P
         ```
         """
     def __repr__(self) -> builtins.str:
@@ -262,7 +368,7 @@ class Piece:
         
         ```python
         >>> rust_chess.PAWN
-        PAWN
+        P
         ```
         """
 
