@@ -676,12 +676,35 @@ impl PyMove {
 
 // TODO: Bitboards
 
+/// Move iterator class for generating legal moves
+#[gen_stub_pyclass]
+#[pyclass(name = "MoveGenerator")]
+struct PyMoveGenerator(chess::MoveGen);
+
+#[gen_stub_pymethods]
+#[pymethods]
+impl PyMoveGenerator {
+    fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
+        slf
+    }
+
+    fn __next__(&mut self) -> Option<PyMove> {
+        self.0.next().map(PyMove)
+    }
+
+    #[allow(clippy::unused_self)]
+    fn __repr__(&self) -> String {
+        "MoveGenerator()".to_string()
+    }
+}
+
 /// Board class
 #[gen_stub_pyclass]
 #[pyclass(name = "Board")]
 struct PyBoard {
     board: chess::Board,
-    move_gen: chess::MoveGen,
+    // move_gen: chess::MoveGen,
+    move_gen: Option<PyMoveGenerator>,
 
     /// Get the halfmove clock.
     ///
@@ -716,7 +739,8 @@ impl PyBoard {
                 let board = chess::Board::default();
                 Ok(PyBoard {
                     board,
-                    move_gen: chess::MoveGen::new_legal(&board),
+                    // move_gen: chess::MoveGen::new_legal(&board),
+                    move_gen: Some(PyMoveGenerator(chess::MoveGen::new_legal(&board))),
                     halfmove_clock: 0,
                     fullmove_number: 1,
                 })
@@ -796,7 +820,8 @@ impl PyBoard {
 
         Ok(PyBoard {
             board,
-            move_gen: chess::MoveGen::new_legal(&board),
+            // move_gen: chess::MoveGen::new_legal(&board),
+            move_gen: Some(PyMoveGenerator(chess::MoveGen::new_legal(&board))),
             halfmove_clock,
             fullmove_number,
         })
@@ -852,6 +877,7 @@ impl PyBoard {
         })
     }
 
+    // TODO: Use generator?
     /// Check if the move is legal (supposedly slow according to the chess crate)
     #[inline]
     fn is_legal_move(&self, chess_move: PyMove) -> bool {
@@ -893,7 +919,8 @@ impl PyBoard {
 
         Ok(PyBoard {
             board: new_board,
-            move_gen: chess::MoveGen::new_legal(&new_board),
+            // move_gen: chess::MoveGen::new_legal(&new_board),
+            move_gen: Some(PyMoveGenerator(chess::MoveGen::new_legal(&new_board))),
             halfmove_clock,
             fullmove_number,
         })
@@ -924,10 +951,54 @@ impl PyBoard {
 
         // Update the current board
         self.board = temp_board;
-        self.move_gen = chess::MoveGen::new_legal(&self.board);
+        // self.move_gen = chess::MoveGen::new_legal(&self.board);
+        self.move_gen = Some(PyMoveGenerator(chess::MoveGen::new_legal(&temp_board)));
 
         Ok(())
     }
+
+    /// Get the next move of the generator
+    fn next_move(&mut self) -> Option<PyMove> {
+        self.move_gen.as_mut().and_then(PyMoveGenerator::__next__)
+    }
+
+    /// Generate legal moves for the current board (exhausts the move generator)
+    fn generate_legal_moves(&mut self) -> Option<PyMoveGenerator> {        
+        self.move_gen.as_mut()?.0.set_iterator_mask(!chess::EMPTY);
+
+        self.move_gen.take()
+    }
+
+    /// Generate legal captures for the current board (exhausts the move generator)
+    fn generate_legal_captures(&mut self) -> Option<PyMoveGenerator> {
+        let targets_mask = self.board.color_combined(!self.board.side_to_move());
+        self.move_gen.as_mut()?.0.set_iterator_mask(*targets_mask);
+        
+        self.generate_legal_moves()
+    }
+
+    // /// Borrow the generator, reset mask to all legal, and return it.
+    // fn generate_legal_moves<'p>(
+    //     slf: PyRefMut<'p, Self>,
+    // ) -> Option<PyRefMut<'p, PyMoveGenerator>> {
+    //     // get &mut MoveGenerator inside PyBoard
+    //     let mg = slf.move_gen.as_mut()?;
+    //     // reset mask
+    //     mg.0.set_iterator_mask(!chess::EMPTY);
+    //     // map the PyRefMut<PyBoard> into PyRefMut<PyMoveGenerator>
+    //     Some(PyRefMut::map(slf, |b| b.move_gen.as_mut().unwrap()))
+    // }
+
+    // /// Borrow the generator, set mask to captures‐only, and return it.
+    // fn generate_legal_captures<'p>(
+    //     slf: PyRefMut<'p, Self>,
+    // ) -> Option<PyRefMut<'p, PyMoveGenerator>> {
+    //     let mg = slf.move_gen.as_mut()?;
+    //     // build the mask of enemy‐occupied squares
+    //     let targets = slf.board.color_combined(!slf.board.side_to_move());
+    //     mg.0.set_iterator_mask(*targets);
+    //     Some(PyRefMut::map(slf, |b| b.move_gen.as_mut().unwrap()))
+    // }
 }
 
 // Define the Python module
@@ -938,6 +1009,7 @@ fn rust_chess(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyPiece>()?;
     module.add_class::<PySquare>()?;
     module.add_class::<PyMove>()?;
+    module.add_class::<PyMoveGenerator>()?;
     module.add_class::<PyBoard>()?;
 
     // Add the constants to the module

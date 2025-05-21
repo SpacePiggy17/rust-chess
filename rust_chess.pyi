@@ -107,6 +107,18 @@ class Board:
         r"""
         Makes a move on the current board (around 2x slower than `make_move_new`)
         """
+    def next_move(self) -> typing.Optional[Move]:
+        r"""
+        Get the next move of the generator
+        """
+    def generate_legal_moves(self) -> typing.Optional[MoveGenerator]:
+        r"""
+        Generate legal moves for the current board (exhausts the move generator)
+        """
+    def generate_legal_captures(self) -> typing.Optional[MoveGenerator]:
+        r"""
+        Generate legal captures for the current board (exhausts the move generator)
+        """
 
 class Color:
     r"""
@@ -282,6 +294,14 @@ class Move:
         Move(e2, e4, None)
         ```
         """
+
+class MoveGenerator:
+    r"""
+    Move iterator class for generating legal moves
+    """
+    def __iter__(self) -> MoveGenerator: ...
+    def __next__(self) -> typing.Optional[Move]: ...
+    def __repr__(self) -> builtins.str: ...
 
 class Piece:
     r"""

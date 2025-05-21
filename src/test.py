@@ -1,7 +1,6 @@
 import rust_chess as ch
 import chess
 
-
 def test_rust_chess():
     color = ch.WHITE
     color2 = ch.COLORS[1]
@@ -65,6 +64,9 @@ def test_rust_chess():
     print(board)
     # board4 = board2.make_move_new(move2, check_legality=True) # Will panic
     # print(board4)
+
+    print(board.next_legal_capture())
+    print(board.next_legal_move())
 
 def test_chess():
     color = chess.WHITE
@@ -131,5 +133,5 @@ if __name__ == "__main__":
 
     print("---------------------------------------")
 
-    for i in range(n):
-        test_chess() # Biggest slow down is creating with fen, displaying fen, legality, pushing moves
+    # for i in range(n):
+    #     test_chess() # Biggest slow down is creating with fen, displaying fen, legality, pushing moves
