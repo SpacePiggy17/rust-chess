@@ -65,8 +65,12 @@ def test_rust_chess():
     # board4 = board2.make_move_new(move2, check_legality=True) # Will panic
     # print(board4)
 
-    print(board.next_legal_capture())
-    print(board.next_legal_move())
+    # print(board.next_legal_capture())
+    print(board.next_move())
+
+    board3 = ch.Board("rnbqkbnr/ppp1pppp/8/3p4/2P1P3/8/PP1P1PPP/RNBQKBNR b KQkq - 0 2") # Black could capture either pawn
+    print(list(board3.generate_legal_captures()))
+    print(list(board3.generate_legal_moves()))
 
 def test_chess():
     color = chess.WHITE

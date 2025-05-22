@@ -704,7 +704,7 @@ impl PyMoveGenerator {
 struct PyBoard {
     board: chess::Board,
     // move_gen: chess::MoveGen,
-    move_gen: Option<PyMoveGenerator>,
+    move_gen: Py<PyMoveGenerator>, // Use a Py to be able to share between Python and Rust
 
     /// Get the halfmove clock.
     ///
@@ -737,10 +737,16 @@ impl PyBoard {
             // If no FEN string is provided, use the default starting position
             None => {
                 let board = chess::Board::default();
+
+                // Acquire the GIL to create the move generator
+                let move_gen = Python::with_gil(|py| {
+                    Py::new(py, PyMoveGenerator(chess::MoveGen::new_legal(&board)))
+                })?;
+
                 Ok(PyBoard {
                     board,
                     // move_gen: chess::MoveGen::new_legal(&board),
-                    move_gen: Some(PyMoveGenerator(chess::MoveGen::new_legal(&board))),
+                    move_gen,
                     halfmove_clock: 0,
                     fullmove_number: 1,
                 })
@@ -818,10 +824,14 @@ impl PyBoard {
         let board = chess::Board::from_str(fen)
             .map_err(|e| PyValueError::new_err(format!("Invalid FEN: {e}")))?;
 
+        // Acquire the GIL to create the move generator
+        let move_gen =
+            Python::with_gil(|py| Py::new(py, PyMoveGenerator(chess::MoveGen::new_legal(&board))))?;
+
         Ok(PyBoard {
             board,
             // move_gen: chess::MoveGen::new_legal(&board),
-            move_gen: Some(PyMoveGenerator(chess::MoveGen::new_legal(&board))),
+            move_gen,
             halfmove_clock,
             fullmove_number,
         })
@@ -917,10 +927,15 @@ impl PyBoard {
             self.fullmove_number
         };
 
+        // Acquire the GIL to create the move generator
+        let move_gen = Python::with_gil(|py| {
+            Py::new(py, PyMoveGenerator(chess::MoveGen::new_legal(&new_board)))
+        })?;
+
         Ok(PyBoard {
             board: new_board,
             // move_gen: chess::MoveGen::new_legal(&new_board),
-            move_gen: Some(PyMoveGenerator(chess::MoveGen::new_legal(&new_board))),
+            move_gen,
             halfmove_clock,
             fullmove_number,
         })
@@ -951,30 +966,55 @@ impl PyBoard {
 
         // Update the current board
         self.board = temp_board;
+
         // self.move_gen = chess::MoveGen::new_legal(&self.board);
-        self.move_gen = Some(PyMoveGenerator(chess::MoveGen::new_legal(&temp_board)));
+        // self.move_gen = Some(PyMoveGenerator(chess::MoveGen::new_legal(&temp_board)));
+
+        // Acquire the GIL to create the move generator
+        self.move_gen = Python::with_gil(|py| {
+            Py::new(py, PyMoveGenerator(chess::MoveGen::new_legal(&temp_board)))
+        })?;
 
         Ok(())
     }
 
     /// Get the next move of the generator
     fn next_move(&mut self) -> Option<PyMove> {
-        self.move_gen.as_mut().and_then(PyMoveGenerator::__next__)
+        // self.move_gen.as_mut().and_then(PyMoveGenerator::__next__)
+
+        // Acquire the GIL to get the next move
+        // unsafe { Python::with_gil_unchecked(|py| self.move_gen.borrow_mut(py).__next__()) }
+
+        let py = unsafe { Python::assume_gil_acquired() };
+        self.move_gen.borrow_mut(py).__next__()
     }
 
     /// Generate legal moves for the current board (exhausts the move generator)
-    fn generate_legal_moves(&mut self) -> Option<PyMoveGenerator> {        
-        self.move_gen.as_mut()?.0.set_iterator_mask(!chess::EMPTY);
-
-        self.move_gen.take()
+    fn generate_legal_moves(&mut self) -> Option<Py<PyMoveGenerator>> {
+        unsafe {
+            Python::with_gil_unchecked(|py| {
+                self.move_gen
+                    .borrow_mut(py)
+                    .0
+                    .set_iterator_mask(!chess::EMPTY);
+                Some(self.move_gen.clone_ref(py)) // Share ownership with Python
+            })
+        }
     }
 
     /// Generate legal captures for the current board (exhausts the move generator)
-    fn generate_legal_captures(&mut self) -> Option<PyMoveGenerator> {
+    fn generate_legal_captures(&mut self) -> Option<Py<PyMoveGenerator>> {
         let targets_mask = self.board.color_combined(!self.board.side_to_move());
-        self.move_gen.as_mut()?.0.set_iterator_mask(*targets_mask);
-        
-        self.generate_legal_moves()
+
+        unsafe {
+            Python::with_gil_unchecked(|py| {
+                self.move_gen
+                    .borrow_mut(py)
+                    .0
+                    .set_iterator_mask(*targets_mask);
+                Some(self.move_gen.clone_ref(py)) // Share ownership with Python
+            })
+        }
     }
 
     // /// Borrow the generator, reset mask to all legal, and return it.
