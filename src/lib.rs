@@ -1,5 +1,6 @@
 // PyO3 does not support "self" input parameters, only "&self"
 #![allow(clippy::trivially_copy_pass_by_ref)]
+#![allow(clippy::wrong_self_convention)]
 
 use std::str::FromStr;
 
@@ -10,6 +11,7 @@ use pyo3_stub_gen::{
 };
 
 // TODO: Figure out auto stub for constants
+// TODO: Remove inline for Python-called only
 
 // Color constants
 const WHITE: PyColor = PyColor(chess::Color::White);
@@ -24,6 +26,8 @@ const ROOK: PyPieceType = PyPieceType(chess::Piece::Rook);
 const QUEEN: PyPieceType = PyPieceType(chess::Piece::Queen);
 const KING: PyPieceType = PyPieceType(chess::Piece::King);
 const PIECES: [PyPieceType; 6] = [PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING];
+
+// TODO: Mega compares
 
 /// Color enum class.
 /// White is True, Black is False.
@@ -275,6 +279,119 @@ impl PyPiece {
     // TODO: Implement __lt__, __le__, __gt__, __ge__ for comparison with mega compare
 }
 
+/// Bitboard class.
+/// Represents a 64-bit unsigned integer.
+/// Each bit represents a square on the chessboard.
+/// The least-significant bit represents a1, and the most-significant bit represents h8.
+///
+#[gen_stub_pyclass]
+#[pyclass(name = "Bitboard")]
+struct PyBitboard(chess::BitBoard);
+
+#[gen_stub_pymethods]
+#[pymethods]
+impl PyBitboard {
+    /// Create a new Bitboard from a 64-bit integer or a square
+    #[new]
+    #[inline]
+    fn new(bitboard_or_square: &Bound<'_, PyAny>) -> PyResult<Self> {
+        if let Ok(square) = bitboard_or_square.extract::<PySquare>() {
+            Ok(PyBitboard::from_square(square))
+        } else if let Ok(bitboard) = bitboard_or_square.extract::<u64>() {
+            Ok(PyBitboard(chess::BitBoard(bitboard)))
+        } else {
+            Err(PyValueError::new_err(
+                "Bitboard must be a 64-bit integer or a square",
+            ))
+        }
+    }
+
+    /// Create a new Bitboard from a square
+    #[staticmethod]
+    #[inline]
+    fn from_square(square: PySquare) -> Self {
+        PyBitboard(chess::BitBoard::from_square(square.0))
+    }
+
+    /// Convert the Bitboard to a square.
+    /// This grabs the least-significant square.
+    ///
+    #[inline]
+    fn to_square(&self) -> PySquare {
+        PySquare(self.0.to_square())
+    }
+
+    /// Convert the Bitboard to an unsigned 64-bit integer
+    #[inline]
+    fn to_uint(&self) -> u64 {
+        self.0 .0
+    }
+
+    /// Convert the Bitboard to a string.
+    /// Displays the bitboard in an 8x8 grid.
+    /// a1 is the top-left corner, h8 is the bottom-right corner.
+    /// To make a1 the bottom-left corner and h8 the top-right corner, call `flip_vertical()` on the bitboard.
+    /// Very useful for debugging purposes.
+    /// 
+    #[inline]
+    fn get_string(&self) -> String {
+        self.0.to_string()
+    }
+
+    /// Convert the Bitboard to a string.
+    /// Displays the bitboard in an 8x8 grid.
+    /// a1 is the top-left corner, h8 is the bottom-right corner.
+    /// To make a1 the bottom-left corner and h8 the top-right corner, call `flip_vertical()` on the bitboard.
+    /// Very useful for debugging purposes.
+    /// 
+    #[inline]
+    fn __str__(&self) -> String {
+        self.get_string()
+    }
+
+    /// Convert the Bitboard to a string.
+    /// Displays the bitboard in an 8x8 grid.
+    /// a1 is the top-left corner, h8 is the bottom-right corner.
+    /// To make a1 the bottom-left corner and h8 the top-right corner, call `flip_vertical()` on the bitboard.
+    /// Very useful for debugging purposes.
+    /// 
+    #[inline]
+    fn __repr__(&self) -> String {
+        self.get_string()
+    }
+
+    /// Count the number of squares in the Bitboard
+    #[inline]
+    fn popcnt(&self) -> u32 {
+        self.0.popcnt()
+    }
+
+    /// Flip a bitboard vertically.
+    /// View it from the opponent's perspective.
+    /// Useful for operations that rely on symmetry, like piece-square tables.
+    /// 
+    #[inline]
+    fn flip_vertical(&self) -> Self {
+        PyBitboard(self.0.reverse_colors())
+    }
+    
+    /// Return an iterator of the bitboard
+    #[inline]
+    fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
+        slf
+    }
+    
+    /// Get the next square in the Bitboard.
+    /// Removes the square from the Bitboard.
+    /// 
+    #[inline]
+    fn __next__(&mut self) -> Option<PySquare> {
+        self.0.next().map(PySquare)
+    }
+
+    // TODO: Bitwise operations
+}
+
 /// Square class.
 /// Represents a square on the chessboard.
 /// The square is represented as an integer (0-63) or a string (e.g. "e4").
@@ -343,6 +460,12 @@ impl PySquare {
     #[inline]
     fn get_index(&self) -> u8 {
         self.0.to_int()
+    }
+
+    /// Convert a square to a bitboard
+    #[inline]
+    fn to_bitboard(&self) -> PyBitboard {
+        PyBitboard::from_square(*self)
     }
 
     /// Create a new square from an index.
@@ -713,8 +836,6 @@ impl PyMove {
     // }
 }
 
-// TODO: Bitboards
-
 /// Move iterator class for generating legal moves.
 /// Not intended for direct use.
 /// Use the `Board` class methods for generating moves.
@@ -725,14 +846,17 @@ struct PyMoveGenerator(chess::MoveGen);
 #[gen_stub_pymethods]
 #[pymethods]
 impl PyMoveGenerator {
+    /// Return an iterator of the generator
     fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
         slf
     }
 
+    /// Get the next move in the generator
     fn __next__(&mut self) -> Option<PyMove> {
         self.0.next().map(PyMove)
     }
 
+    /// Get the type of the move generator
     #[allow(clippy::unused_self)]
     #[inline]
     fn __repr__(&self) -> String {
@@ -1027,10 +1151,12 @@ impl PyBoard {
             || self.get_piece_type_on(chess_move.get_dest()).is_some() // Capture (moving piece onto other piece)
     }
 
+    // TODO: make_null_move_new, make_null_move
+
     /// Make a move onto a new board
     ///
     #[pyo3(signature = (chess_move, check_legality = false))]
-    fn make_move_new(&self, chess_move: PyMove, check_legality: bool) -> PyResult<PyBoard> {
+    fn make_move_new(&self, chess_move: PyMove, check_legality: bool) -> PyResult<Self> {
         // If we are checking legality, check if the move is legal
         if check_legality && !self.is_legal_move(chess_move) {
             return Err(PyValueError::new_err("Illegal move"));
@@ -1206,6 +1332,7 @@ fn rust_chess(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyColor>()?;
     module.add_class::<PyPieceType>()?;
     module.add_class::<PyPiece>()?;
+    module.add_class::<PyBitboard>()?;
     module.add_class::<PySquare>()?;
     module.add_class::<PyMove>()?;
     module.add_class::<PyMoveGenerator>()?;

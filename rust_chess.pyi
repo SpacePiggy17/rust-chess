@@ -4,6 +4,75 @@
 import builtins
 import typing
 
+class Bitboard:
+    r"""
+    Bitboard class.
+    Represents a 64-bit unsigned integer.
+    Each bit represents a square on the chessboard.
+    The least-significant bit represents a1, and the most-significant bit represents h8.
+    """
+    def __new__(cls, bitboard_or_square:typing.Any) -> Bitboard:
+        r"""
+        Create a new Bitboard from a 64-bit integer or a square
+        """
+    @staticmethod
+    def from_square(square:Square) -> Bitboard:
+        r"""
+        Create a new Bitboard from a square
+        """
+    def to_square(self) -> Square:
+        r"""
+        Convert the Bitboard to a square.
+        This grabs the least-significant square.
+        """
+    def to_uint(self) -> builtins.int:
+        r"""
+        Convert the Bitboard to an unsigned 64-bit integer
+        """
+    def get_string(self) -> builtins.str:
+        r"""
+        Convert the Bitboard to a string.
+        Displays the bitboard in an 8x8 grid.
+        a1 is the top-left corner, h8 is the bottom-right corner.
+        To make a1 the bottom-left corner and h8 the top-right corner, call `flip_vertical()` on the bitboard.
+        Very useful for debugging purposes.
+        """
+    def __str__(self) -> builtins.str:
+        r"""
+        Convert the Bitboard to a string.
+        Displays the bitboard in an 8x8 grid.
+        a1 is the top-left corner, h8 is the bottom-right corner.
+        To make a1 the bottom-left corner and h8 the top-right corner, call `flip_vertical()` on the bitboard.
+        Very useful for debugging purposes.
+        """
+    def __repr__(self) -> builtins.str:
+        r"""
+        Convert the Bitboard to a string.
+        Displays the bitboard in an 8x8 grid.
+        a1 is the top-left corner, h8 is the bottom-right corner.
+        To make a1 the bottom-left corner and h8 the top-right corner, call `flip_vertical()` on the bitboard.
+        Very useful for debugging purposes.
+        """
+    def popcnt(self) -> builtins.int:
+        r"""
+        Count the number of squares in the Bitboard
+        """
+    def flip_vertical(self) -> Bitboard:
+        r"""
+        Flip a bitboard vertically.
+        View it from the opponent's perspective.
+        Useful for operations that rely on symmetry, like piece-square tables.
+        """
+    def __iter__(self) -> Bitboard:
+        r"""
+        Return an iterator of the bitboard
+        """
+    def __next__(self) -> typing.Optional[Square]:
+        r"""
+        Get the next square in the Bitboard.
+        Removes the square from the Bitboard.
+        """
+
 class Board:
     r"""
     Board class.
@@ -410,9 +479,18 @@ class MoveGenerator:
     Not intended for direct use.
     Use the `Board` class methods for generating moves.
     """
-    def __iter__(self) -> MoveGenerator: ...
-    def __next__(self) -> typing.Optional[Move]: ...
-    def __repr__(self) -> builtins.str: ...
+    def __iter__(self) -> MoveGenerator:
+        r"""
+        Return an iterator of the generator
+        """
+    def __next__(self) -> typing.Optional[Move]:
+        r"""
+        Get the next move in the generator
+        """
+    def __repr__(self) -> builtins.str:
+        r"""
+        Get the type of the move generator
+        """
 
 class Piece:
     r"""
@@ -567,6 +645,10 @@ class Square:
         >>> rust_chess.Square("e4").get_index()
         28
         ```
+        """
+    def to_bitboard(self) -> Bitboard:
+        r"""
+        Convert a square to a bitboard
         """
     @staticmethod
     def from_index(index:builtins.int) -> Square:
