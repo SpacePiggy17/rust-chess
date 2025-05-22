@@ -60,13 +60,14 @@ def test_rust_chess():
 
     board3 = board.make_move_new(move) # Pawn move
     print(board3)
-    board.make_move(ch.Move.from_uci("g1f3"), check_legality=True) # Horse move
+    move = ch.Move.from_uci("g1f3") # Horse move
+    board.make_move(move, check_legality=True) # Horse move
     print(board)
     # board4 = board2.make_move_new(move2, check_legality=True) # Will panic
     # print(board4)
 
-    # print(board.next_legal_capture())
     print(board.next_move())
+    board.reset_move_generator()
 
     board3 = ch.Board("rnbqkbnr/ppp1pppp/8/3p4/2P1P3/8/PP1P1PPP/RNBQKBNR b KQkq - 0 2") # Black could capture either pawn
     print(list(board3.generate_legal_captures()))
@@ -128,14 +129,21 @@ def test_chess():
     board.push(chess.Move.from_uci("g1f3")) # Horse move
     print(board)
 
+    print(next(iter(board.legal_moves)))
+
+    board3 = chess.Board("rnbqkbnr/ppp1pppp/8/3p4/2P1P3/8/PP1P1PPP/RNBQKBNR b KQkq - 0 2") # Black could capture either pawn
+    print(list(board3.generate_legal_captures()))
+    print(list(board3.generate_legal_moves()))
+
 if __name__ == "__main__":
     n = 1
     n = 100_000
 
     for i in range(n):
-        test_rust_chess() # Around 2.3 times faster python chess :)
+        # Comparable speeds with Python chess for simple functions, if not a little slower, but much faster for more complex functions
+        test_rust_chess() # Around 2.7 times faster python chess :) (for this test)
 
     print("---------------------------------------")
 
     # for i in range(n):
-    #     test_chess() # Biggest slow down is creating with fen, displaying fen, legality, pushing moves
+    #     test_chess() # Biggest slow down is creating with fen, displaying fen, legality, pushing moves, generating moves
