@@ -1,17 +1,18 @@
 // PyO3 does not support "self" input parameters, only "&self"
 #![allow(clippy::trivially_copy_pass_by_ref)]
 #![allow(clippy::wrong_self_convention)]
+#![allow(clippy::unused_self)]
 
 use std::str::FromStr;
 
-use pyo3::{exceptions::PyValueError, prelude::*, types::PyAny};
+use pyo3::{basic::CompareOp, exceptions::PyValueError, prelude::*, types::PyAny};
 use pyo3_stub_gen::{
     define_stub_info_gatherer,
     derive::{gen_stub_pyclass, gen_stub_pymethods},
+    module_variable,
 };
 
-// TODO: Figure out auto stub for constants
-// TODO: Remove inline for Python-called only
+// TODO: Remove inline for Python-called only?
 
 // Color constants
 const WHITE: PyColor = PyColor(chess::Color::White);
@@ -26,8 +27,6 @@ const ROOK: PyPieceType = PyPieceType(chess::Piece::Rook);
 const QUEEN: PyPieceType = PyPieceType(chess::Piece::Queen);
 const KING: PyPieceType = PyPieceType(chess::Piece::King);
 const PIECES: [PyPieceType; 6] = [PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING];
-
-// TODO: Mega compares
 
 /// Color enum class.
 /// White is True, Black is False.
@@ -45,7 +44,7 @@ const PIECES: [PyPieceType; 6] = [PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING];
 /// True
 /// ```
 #[gen_stub_pyclass]
-#[pyclass(name = "Color")]
+#[pyclass(name = "Color", frozen)]
 #[derive(PartialOrd, PartialEq, Eq, Copy, Clone, Hash)]
 struct PyColor(chess::Color);
 
@@ -122,10 +121,10 @@ impl PyColor {
     /// ```
     #[inline]
     fn __eq__(&self, other: &Bound<'_, PyAny>) -> bool {
-        if let Ok(other_bool) = other.extract::<bool>() {
-            self.__bool__() == other_bool
-        } else if let Ok(other_color) = other.extract::<PyColor>() {
+        if let Ok(other_color) = other.extract::<PyColor>() {
             self.__bool__() == other_color.__bool__()
+        } else if let Ok(other_bool) = other.extract::<bool>() {
+            self.__bool__() == other_bool
         } else {
             false
         }
@@ -135,6 +134,7 @@ impl PyColor {
 /// Piece type enum class.
 /// Represents the different types of chess pieces.
 /// Indexing starts at 0 (PAWN) and ends at 5 (KING).
+/// Supports comparison and equality.
 /// Does not include color.
 ///
 /// `rust_chess` has constants for each piece type (e.g. PAWN, KNIGHT, etc.).
@@ -154,7 +154,7 @@ impl PyColor {
 /// True
 /// ```
 #[gen_stub_pyclass]
-#[pyclass(name = "PieceType")]
+#[pyclass(name = "PieceType", frozen, eq, ord)]
 #[derive(PartialEq, Eq, Ord, PartialOrd, Copy, Clone, Hash)]
 struct PyPieceType(chess::Piece);
 
@@ -210,19 +210,19 @@ impl PyPieceType {
     fn __repr__(&self) -> String {
         self.get_string(WHITE)
     }
-
-    // TODO: Implement __lt__, __le__, __gt__, __ge__ for comparison with mega compare
 }
 
 /// Piece class.
 /// Represents a chess piece with a type and color.
 /// Uses the PieceType and Color classes.
+/// Supports comparison and equality.
+/// A white piece is considered less than a black piece of the same type.
 ///
 /// ```python
 /// TODO
 /// ```
 #[gen_stub_pyclass]
-#[pyclass(name = "Piece")]
+#[pyclass(name = "Piece", frozen, eq, ord)]
 #[derive(PartialOrd, PartialEq, Eq, Copy, Clone, Hash)]
 struct PyPiece {
     piece_type: PyPieceType,
@@ -234,6 +234,7 @@ struct PyPiece {
 impl PyPiece {
     /// Create a new piece from a piece type and color
     #[new]
+    #[inline]
     fn new(piece_type: PyPieceType, color: PyColor) -> Self {
         PyPiece { piece_type, color }
     }
@@ -275,17 +276,17 @@ impl PyPiece {
     fn get_color(&self) -> PyColor {
         self.color
     }
-
-    // TODO: Implement __lt__, __le__, __gt__, __ge__ for comparison with mega compare
 }
 
 /// Bitboard class.
 /// Represents a 64-bit unsigned integer.
 /// Each bit represents a square on the chessboard.
 /// The least-significant bit represents a1, and the most-significant bit represents h8.
+/// Supports bitwise operations and iteration.
 ///
 #[gen_stub_pyclass]
-#[pyclass(name = "Bitboard")]
+#[pyclass(name = "Bitboard", eq)]
+#[derive(PartialEq, Eq, PartialOrd, Clone, Copy, Default, Hash)]
 struct PyBitboard(chess::BitBoard);
 
 #[gen_stub_pymethods]
@@ -298,7 +299,7 @@ impl PyBitboard {
         if let Ok(square) = bitboard_or_square.extract::<PySquare>() {
             Ok(PyBitboard::from_square(square))
         } else if let Ok(bitboard) = bitboard_or_square.extract::<u64>() {
-            Ok(PyBitboard(chess::BitBoard(bitboard)))
+            Ok(PyBitboard::from_uint(bitboard))
         } else {
             Err(PyValueError::new_err(
                 "Bitboard must be a 64-bit integer or a square",
@@ -311,6 +312,13 @@ impl PyBitboard {
     #[inline]
     fn from_square(square: PySquare) -> Self {
         PyBitboard(chess::BitBoard::from_square(square.0))
+    }
+
+    /// Create a new Bitboard from an unsigned 64-bit integer
+    #[staticmethod]
+    #[inline]
+    fn from_uint(bitboard: u64) -> Self {
+        PyBitboard(chess::BitBoard(bitboard))
     }
 
     /// Convert the Bitboard to a square.
@@ -332,7 +340,7 @@ impl PyBitboard {
     /// a1 is the top-left corner, h8 is the bottom-right corner.
     /// To make a1 the bottom-left corner and h8 the top-right corner, call `flip_vertical()` on the bitboard.
     /// Very useful for debugging purposes.
-    /// 
+    ///
     #[inline]
     fn get_string(&self) -> String {
         self.0.to_string()
@@ -343,7 +351,7 @@ impl PyBitboard {
     /// a1 is the top-left corner, h8 is the bottom-right corner.
     /// To make a1 the bottom-left corner and h8 the top-right corner, call `flip_vertical()` on the bitboard.
     /// Very useful for debugging purposes.
-    /// 
+    ///
     #[inline]
     fn __str__(&self) -> String {
         self.get_string()
@@ -354,7 +362,7 @@ impl PyBitboard {
     /// a1 is the top-left corner, h8 is the bottom-right corner.
     /// To make a1 the bottom-left corner and h8 the top-right corner, call `flip_vertical()` on the bitboard.
     /// Very useful for debugging purposes.
-    /// 
+    ///
     #[inline]
     fn __repr__(&self) -> String {
         self.get_string()
@@ -369,32 +377,223 @@ impl PyBitboard {
     /// Flip a bitboard vertically.
     /// View it from the opponent's perspective.
     /// Useful for operations that rely on symmetry, like piece-square tables.
-    /// 
+    ///
     #[inline]
     fn flip_vertical(&self) -> Self {
         PyBitboard(self.0.reverse_colors())
     }
-    
+
     /// Return an iterator of the bitboard
     #[inline]
     fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
         slf
     }
-    
+
     /// Get the next square in the Bitboard.
     /// Removes the square from the Bitboard.
-    /// 
+    ///
     #[inline]
     fn __next__(&mut self) -> Option<PySquare> {
         self.0.next().map(PySquare)
     }
 
-    // TODO: Bitwise operations
+    // Bitwise operations
+
+    /// Bitwise NOT operation
+    #[inline]
+    fn __invert__(&self) -> Self {
+        PyBitboard(!self.0)
+    }
+
+    /// Bitwise AND operation (self & other).
+    #[inline]
+    fn __and__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+        if let Ok(other_bitboard) = other.extract::<PyBitboard>() {
+            Ok(PyBitboard(self.0 & other_bitboard.0))
+        } else if let Ok(other_u64) = other.extract::<u64>() {
+            Ok(PyBitboard::from_uint(self.0 .0 & other_u64))
+        } else {
+            Err(PyValueError::new_err(
+                "Operand must be a Bitboard or an integer",
+            ))
+        }
+    }
+
+    /// Reflected bitwise AND operation (other & self).
+    #[inline]
+    fn __rand__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+        self.__and__(other)
+    }
+
+    /// In-place bitwise AND operation (self &= other).
+    #[inline]
+    fn __iand__(&mut self, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        if let Ok(other_bitboard) = other.extract::<PyBitboard>() {
+            self.0 &= other_bitboard.0;
+            Ok(())
+        } else if let Ok(other_u64) = other.extract::<u64>() {
+            self.0 .0 &= other_u64;
+            Ok(())
+        } else {
+            Err(PyValueError::new_err(
+                "Operand must be a Bitboard or an integer",
+            ))
+        }
+    }
+
+    /// Bitwise OR operation (self | other).
+    #[inline]
+    fn __or__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+        if let Ok(other_bitboard) = other.extract::<PyBitboard>() {
+            Ok(PyBitboard(self.0 | other_bitboard.0))
+        } else if let Ok(other_u64) = other.extract::<u64>() {
+            Ok(PyBitboard::from_uint(self.0 .0 | other_u64))
+        } else {
+            Err(PyValueError::new_err(
+                "Operand must be a Bitboard or an integer",
+            ))
+        }
+    }
+
+    /// Reflected bitwise OR operation (other | self).
+    #[inline]
+    fn __ror__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+        self.__or__(other)
+    }
+
+    /// In-place bitwise OR operation (self |= other).
+    #[inline]
+    fn __ior__(&mut self, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        if let Ok(other_bitboard) = other.extract::<PyBitboard>() {
+            self.0 |= other_bitboard.0;
+            Ok(())
+        } else if let Ok(other_u64) = other.extract::<u64>() {
+            self.0 .0 |= other_u64;
+            Ok(())
+        } else {
+            Err(PyValueError::new_err(
+                "Operand must be a Bitboard or an integer",
+            ))
+        }
+    }
+
+    /// Bitwise XOR operation (self ^ other).
+    #[inline]
+    fn __xor__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+        if let Ok(other_bitboard) = other.extract::<PyBitboard>() {
+            Ok(PyBitboard(self.0 ^ other_bitboard.0))
+        } else if let Ok(other_u64) = other.extract::<u64>() {
+            Ok(PyBitboard::from_uint(self.0 .0 ^ other_u64))
+        } else {
+            Err(PyValueError::new_err(
+                "Operand must be a Bitboard or an integer",
+            ))
+        }
+    }
+
+    /// Reflected bitwise XOR operation (other ^ self).
+    #[inline]
+    fn __rxor__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+        self.__xor__(other)
+    }
+
+    /// In-place bitwise XOR operation (self ^= other).
+    #[inline]
+    fn __ixor__(&mut self, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        if let Ok(other_bitboard) = other.extract::<PyBitboard>() {
+            self.0 ^= other_bitboard.0;
+            Ok(())
+        } else if let Ok(other_u64) = other.extract::<u64>() {
+            self.0 .0 ^= other_u64;
+            Ok(())
+        } else {
+            Err(PyValueError::new_err(
+                "Operand must be a Bitboard or an integer",
+            ))
+        }
+    }
+
+    /// Multiplication operation (self * other).
+    #[inline]
+    fn __mul__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+        if let Ok(other_bitboard) = other.extract::<PyBitboard>() {
+            Ok(PyBitboard(self.0 * other_bitboard.0))
+        } else if let Ok(other_u64) = other.extract::<u64>() {
+            Ok(PyBitboard::from_uint(self.0 .0 * other_u64))
+        } else {
+            Err(PyValueError::new_err(
+                "Operand must be a Bitboard or an integer",
+            ))
+        }
+    }
+
+    /// Reflected multiplication operation (other * self).
+    #[inline]
+    fn __rmul__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+        self.__mul__(other)
+    }
+
+    /// In-place multiplication operation (self *= other).
+    #[inline]
+    fn __imul__(&mut self, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        if let Ok(other_bitboard) = other.extract::<PyBitboard>() {
+            self.0 = self.0 * other_bitboard.0;
+            Ok(())
+        } else if let Ok(other_u64) = other.extract::<u64>() {
+            self.0 .0 *= other_u64;
+            Ok(())
+        } else {
+            Err(PyValueError::new_err(
+                "Operand must be a Bitboard or an integer",
+            ))
+        }
+    }
+
+    /// Left shift operation (self << shift).
+    #[inline]
+    fn __lshift__(&self, shift: u32) -> Self {
+        PyBitboard::from_uint(self.0 .0 << shift)
+    }
+
+    /// Reflected left shift operation (not typically used)
+    #[inline]
+    fn __rlshift__(&self, _other: &Bound<'_, PyAny>) -> PyResult<Self> {
+        Err(PyValueError::new_err(
+            "Cannot perform shift with Bitboard on right",
+        ))
+    }
+
+    /// In-place left shift operation (self <<= shift).
+    #[inline]
+    fn __ilshift__(&mut self, shift: u32) {
+        self.0 .0 <<= shift;
+    }
+
+    /// Right shift operation (self >> shift).
+    #[inline]
+    fn __rshift__(&self, shift: u32) -> Self {
+        PyBitboard::from_uint(self.0 .0 >> shift)
+    }
+
+    /// Reflected right shift operation (not typically used)
+    #[inline]
+    fn __rrshift__(&self, _other: &Bound<'_, PyAny>) -> PyResult<Self> {
+        Err(PyValueError::new_err(
+            "Cannot perform shift with Bitboard on right",
+        ))
+    }
+
+    /// In-place right shift operation (self >>= shift).
+    #[inline]
+    fn __irshift__(&mut self, shift: u32) {
+        self.0 .0 >>= shift;
+    }
 }
 
 /// Square class.
 /// Represents a square on the chessboard.
 /// The square is represented as an integer (0-63) or a string (e.g. "e4").
+/// Supports comparison and equality.
 ///
 /// `rust_chess` has constants for each square (e.g. A1, B2, etc.).
 ///
@@ -419,7 +618,7 @@ impl PyBitboard {
 /// TODO
 /// ```
 #[gen_stub_pyclass]
-#[pyclass(name = "Square")]
+#[pyclass(name = "Square", frozen)]
 #[derive(PartialEq, Ord, Eq, PartialOrd, Copy, Clone, Default, Hash)]
 struct PySquare(chess::Square);
 
@@ -435,16 +634,13 @@ impl PySquare {
     /// e4
     /// ```
     #[new]
+    #[inline]
     fn new(square: &Bound<'_, PyAny>) -> PyResult<Self> {
-        // Check if the input is an integer
         if let Ok(index) = square.extract::<u8>() {
             return PySquare::from_index(index);
-        }
-        // Try to extract the square as a string (e.g. "e4")
-        else if let Ok(square_name) = square.extract::<&str>() {
+        } else if let Ok(square_name) = square.extract::<&str>() {
             return PySquare::from_name(square_name);
         }
-        // If the input is neither an integer nor a string, return an error
         Err(PyValueError::new_err(
             "Square must be an integer (0-63) or a string (e.g. \"e4\")",
         ))
@@ -566,16 +762,35 @@ impl PySquare {
     /// True
     /// >>> rust_chess.Square("d2") == 11
     /// True
+    /// >>> rust_chess.G6 > rust_chess.D3
+    /// True
+    /// >>> rust_chess.G6 <= 56
+    /// True
     /// ```
     #[inline]
-    fn __eq__(&self, other: &Bound<'_, PyAny>) -> bool {
-        if let Ok(other_index) = other.extract::<u8>() {
-            self.get_index() == other_index
-        } else if let Ok(other_square) = other.extract::<PySquare>() {
-            self.0 == other_square.0
+    fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: CompareOp) -> PyResult<bool> {
+        // Convert self to index
+        let self_index = self.get_index();
+
+        // Convert other to index
+        let other_index = if let Ok(other_square) = other.extract::<PySquare>() {
+            other_square.get_index()
+        } else if let Ok(other_index) = other.extract::<u8>() {
+            other_index
         } else {
-            false
-        }
+            return Err(PyValueError::new_err(
+                "Square must be an integer (0-63) or a Square",
+            ));
+        };
+
+        Ok(match op {
+            CompareOp::Eq => self_index == other_index,
+            CompareOp::Ne => self_index != other_index,
+            CompareOp::Lt => self_index < other_index,
+            CompareOp::Le => self_index <= other_index,
+            CompareOp::Gt => self_index > other_index,
+            CompareOp::Ge => self_index >= other_index,
+        })
     }
 
     /// Get the rank of the square as an integer (0-7).
@@ -671,7 +886,7 @@ impl PySquare {
 /// True
 /// ```
 #[gen_stub_pyclass]
-#[pyclass(name = "Move")]
+#[pyclass(name = "Move", frozen, eq)]
 #[derive(Clone, Copy, Eq, PartialOrd, PartialEq, Default, Hash)]
 struct PyMove(chess::ChessMove);
 
@@ -693,11 +908,7 @@ impl PyMove {
         dest: Option<PySquare>,
         promotion: Option<PyPieceType>,
     ) -> PyResult<Self> {
-        // If source_or_uci is a string, treat it as a UCI string
-        if let Ok(uci) = source_or_uci.extract::<&str>() {
-            return PyMove::from_uci(uci);
-        }
-        // Otherwise, expect source and destination squares
+        // Expect source and destination squares
         if let Ok(source) = source_or_uci.extract::<PySquare>() {
             if let Some(dest) = dest {
                 // Create a new move using the chess crate
@@ -707,6 +918,10 @@ impl PyMove {
                     promotion.map(|p| p.0),
                 )));
             }
+        }
+        // Otherwise, try treating the first argument as a UCI string
+        if let Ok(uci) = source_or_uci.extract::<&str>() {
+            return PyMove::from_uci(uci);
         }
         // If we reach here, the input was invalid
         Err(PyValueError::new_err("Move must be a UCI string or a source and destination square with optional promotion piece type"))
@@ -816,24 +1031,6 @@ impl PyMove {
     fn get_promotion(&self) -> Option<PyPieceType> {
         self.0.get_promotion().map(PyPieceType)
     }
-
-    // Fixme
-    // TODO: Don't use get_uci
-    // /// Compare the move to another move.
-    // ///
-    // /// ```python
-    // /// >>> move = rust_chess.Move(rust_chess.A2, rust_chess.A4)
-    // /// >>> move == rust_chess.Move.from_uci("a2b4")
-    // /// True
-    // /// ```
-    // #[inline]
-    // fn __eq__(&self, other: &Bound<'_, PyAny>) -> bool {
-    //     if let Ok(other_move) = other.extract::<PyMove>() {
-    //         self.get_uci() == other_move.get_uci()
-    //     } else {
-    //         false
-    //     }
-    // }
 }
 
 /// Move iterator class for generating legal moves.
@@ -847,17 +1044,18 @@ struct PyMoveGenerator(chess::MoveGen);
 #[pymethods]
 impl PyMoveGenerator {
     /// Return an iterator of the generator
+    #[inline]
     fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
         slf
     }
 
     /// Get the next move in the generator
+    #[inline]
     fn __next__(&mut self) -> Option<PyMove> {
         self.0.next().map(PyMove)
     }
 
     /// Get the type of the move generator
-    #[allow(clippy::unused_self)]
     #[inline]
     fn __repr__(&self) -> String {
         "MoveGenerator()".to_string()
@@ -982,7 +1180,6 @@ impl PyBoard {
     /// rnbqkbnr/ppp1pppp/8/3p4/2P1P3/8/PP1P1PPP/RNBQKBNR b KQkq - 0 2
     /// ```
     #[staticmethod]
-    #[inline]
     fn from_fen(fen: &str) -> PyResult<Self> {
         // Extract the halfmove clock and fullmove number from the FEN string
         let parts: Vec<&str> = fen.split_whitespace().collect();
@@ -1123,6 +1320,15 @@ impl PyBoard {
         })
     }
 
+    /// Check if a move is a capture or a pawn move.
+    /// Doesn't check legality.
+    ///
+    #[inline]
+    fn is_zeroing(&self, chess_move: PyMove) -> bool {
+        self.get_piece_type_on(chess_move.get_source()) == Some(PAWN) // Pawn move
+        || self.get_piece_type_on(chess_move.get_dest()).is_some() // Capture (moving piece onto other piece)
+    }
+
     /// Check if the move is legal (supposedly very slow according to the chess crate).
     /// Use this function for moves not generated by the move generator.
     /// `is_legal_quick` is faster for moves generated by the move generator.
@@ -1142,14 +1348,6 @@ impl PyBoard {
     }
 
     // TODO: is_legal_quick
-
-    /// Check if a move is a capture or a pawn move.
-    /// Doesn't check legality.
-    #[inline]
-    fn is_zeroing(&self, chess_move: PyMove) -> bool {
-        self.get_piece_type_on(chess_move.get_source()) == Some(PAWN) // Pawn move
-            || self.get_piece_type_on(chess_move.get_dest()).is_some() // Capture (moving piece onto other piece)
-    }
 
     // TODO: make_null_move_new, make_null_move
 
@@ -1241,7 +1439,7 @@ impl PyBoard {
     // fn get_moves_remaining(&self) -> usize {
     //     // We can assume the GIL is acquired, since this function is only called from Python
     //     let py = unsafe { Python::assume_gil_acquired() };
-
+    //
     //     // Get the length of the move generator
     //     self.move_gen.borrow(py).0.len()
     // }
@@ -1338,32 +1536,43 @@ fn rust_chess(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyMoveGenerator>()?;
     module.add_class::<PyBoard>()?;
 
-    // Add the constants to the module
+    // Add the constants and stubs to the module
 
-    // Add the color constants
+    // Add the color constants and their stubs
     module.add("WHITE", WHITE)?;
+    module_variable!("rust_chess", "WHITE", PyColor);
     module.add("BLACK", BLACK)?;
+    module_variable!("rust_chess", "BLACK", PyColor);
     module.add("COLORS", COLORS)?;
+    module_variable!("rust_chess", "COLORS", Vec<PyColor>);
 
-    // Add the piece constants
+    // Add the piece constants and their stubs
     module.add("PAWN", PAWN)?;
+    module_variable!("rust_chess", "PAWN", PyPieceType);
     module.add("KNIGHT", KNIGHT)?;
+    module_variable!("rust_chess", "KNIGHT", PyPieceType);
     module.add("BISHOP", BISHOP)?;
+    module_variable!("rust_chess", "BISHOP", PyPieceType);
     module.add("ROOK", ROOK)?;
+    module_variable!("rust_chess", "ROOK", PyPieceType);
     module.add("QUEEN", QUEEN)?;
+    module_variable!("rust_chess", "QUEEN", PyPieceType);
     module.add("KING", KING)?;
+    module_variable!("rust_chess", "KING", PyPieceType);
     module.add("PIECES", PIECES)?;
+    module_variable!("rust_chess", "PIECES", Vec<PyPieceType>);
 
-    // Define a macro to add square constants directly to the module (e.g. A1, A2, etc.)
+    // Define a macro to add square constants and stubs directly to the module (e.g. A1, A2, etc.)
     macro_rules! add_square_constants {
         ($module:expr, $($name:ident),*) => {
             $(
                 $module.add(stringify!($name), PySquare(chess::Square::$name))?;
+                module_variable!("rust_chess", stringify!($name), PySquare);
             )*
         }
     }
 
-    // Add all square constants directly to the module
+    // Add all square constants and stubs directly to the module
     #[rustfmt::skip]
     add_square_constants!(module,
         A1, A2, A3, A4, A5, A6, A7, A8,

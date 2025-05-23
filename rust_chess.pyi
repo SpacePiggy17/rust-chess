@@ -4,12 +4,87 @@
 import builtins
 import typing
 
+A1: Square
+A2: Square
+A3: Square
+A4: Square
+A5: Square
+A6: Square
+A7: Square
+A8: Square
+B1: Square
+B2: Square
+B3: Square
+B4: Square
+B5: Square
+B6: Square
+B7: Square
+B8: Square
+BISHOP: PieceType
+BLACK: Color
+C1: Square
+C2: Square
+C3: Square
+C4: Square
+C5: Square
+C6: Square
+C7: Square
+C8: Square
+COLORS: builtins.list[Color]
+D1: Square
+D2: Square
+D3: Square
+D4: Square
+D5: Square
+D6: Square
+D7: Square
+D8: Square
+E1: Square
+E2: Square
+E3: Square
+E4: Square
+E5: Square
+E6: Square
+E7: Square
+E8: Square
+F1: Square
+F2: Square
+F3: Square
+F4: Square
+F5: Square
+F6: Square
+F7: Square
+F8: Square
+G1: Square
+G2: Square
+G3: Square
+G4: Square
+G5: Square
+G6: Square
+G7: Square
+G8: Square
+H1: Square
+H2: Square
+H3: Square
+H4: Square
+H5: Square
+H6: Square
+H7: Square
+H8: Square
+KING: PieceType
+KNIGHT: PieceType
+PAWN: PieceType
+PIECES: builtins.list[PieceType]
+QUEEN: PieceType
+ROOK: PieceType
+WHITE: Color
 class Bitboard:
     r"""
     Bitboard class.
     Represents a 64-bit unsigned integer.
     Each bit represents a square on the chessboard.
     The least-significant bit represents a1, and the most-significant bit represents h8.
+    Supports bitwise operations and iteration.
     """
     def __new__(cls, bitboard_or_square:typing.Any) -> Bitboard:
         r"""
@@ -19,6 +94,11 @@ class Bitboard:
     def from_square(square:Square) -> Bitboard:
         r"""
         Create a new Bitboard from a square
+        """
+    @staticmethod
+    def from_uint(bitboard:builtins.int) -> Bitboard:
+        r"""
+        Create a new Bitboard from an unsigned 64-bit integer
         """
     def to_square(self) -> Square:
         r"""
@@ -71,6 +151,82 @@ class Bitboard:
         r"""
         Get the next square in the Bitboard.
         Removes the square from the Bitboard.
+        """
+    def __invert__(self) -> Bitboard:
+        r"""
+        Bitwise NOT operation
+        """
+    def __and__(self, other:typing.Any) -> Bitboard:
+        r"""
+        Bitwise AND operation (self & other).
+        """
+    def __rand__(self, other:typing.Any) -> Bitboard:
+        r"""
+        Reflected bitwise AND operation (other & self).
+        """
+    def __iand__(self, other:typing.Any) -> None:
+        r"""
+        In-place bitwise AND operation (self &= other).
+        """
+    def __or__(self, other:typing.Any) -> Bitboard:
+        r"""
+        Bitwise OR operation (self | other).
+        """
+    def __ror__(self, other:typing.Any) -> Bitboard:
+        r"""
+        Reflected bitwise OR operation (other | self).
+        """
+    def __ior__(self, other:typing.Any) -> None:
+        r"""
+        In-place bitwise OR operation (self |= other).
+        """
+    def __xor__(self, other:typing.Any) -> Bitboard:
+        r"""
+        Bitwise XOR operation (self ^ other).
+        """
+    def __rxor__(self, other:typing.Any) -> Bitboard:
+        r"""
+        Reflected bitwise XOR operation (other ^ self).
+        """
+    def __ixor__(self, other:typing.Any) -> None:
+        r"""
+        In-place bitwise XOR operation (self ^= other).
+        """
+    def __mul__(self, other:typing.Any) -> Bitboard:
+        r"""
+        Multiplication operation (self * other).
+        """
+    def __rmul__(self, other:typing.Any) -> Bitboard:
+        r"""
+        Reflected multiplication operation (other * self).
+        """
+    def __imul__(self, other:typing.Any) -> None:
+        r"""
+        In-place multiplication operation (self *= other).
+        """
+    def __lshift__(self, shift:builtins.int) -> Bitboard:
+        r"""
+        Left shift operation (self << shift).
+        """
+    def __rlshift__(self, _other:typing.Any) -> Bitboard:
+        r"""
+        Reflected left shift operation (not typically used)
+        """
+    def __ilshift__(self, shift:builtins.int) -> None:
+        r"""
+        In-place left shift operation (self <<= shift).
+        """
+    def __rshift__(self, shift:builtins.int) -> Bitboard:
+        r"""
+        Right shift operation (self >> shift).
+        """
+    def __rrshift__(self, _other:typing.Any) -> Bitboard:
+        r"""
+        Reflected right shift operation (not typically used)
+        """
+    def __irshift__(self, shift:builtins.int) -> None:
+        r"""
+        In-place right shift operation (self >>= shift).
         """
 
 class Board:
@@ -228,6 +384,11 @@ class Board:
         k
         ```
         """
+    def is_zeroing(self, chess_move:Move) -> builtins.bool:
+        r"""
+        Check if a move is a capture or a pawn move.
+        Doesn't check legality.
+        """
     def is_legal_move(self, chess_move:Move) -> builtins.bool:
         r"""
         Check if the move is legal (supposedly very slow according to the chess crate).
@@ -242,11 +403,6 @@ class Board:
         >>> rust_chess.Board().is_legal_move(move2)
         False
         ```
-        """
-    def is_zeroing(self, chess_move:Move) -> builtins.bool:
-        r"""
-        Check if a move is a capture or a pawn move.
-        Doesn't check legality.
         """
     def make_move_new(self, chess_move:Move, check_legality:builtins.bool=False) -> Board:
         r"""
@@ -497,6 +653,8 @@ class Piece:
     Piece class.
     Represents a chess piece with a type and color.
     Uses the PieceType and Color classes.
+    Supports comparison and equality.
+    A white piece is considered less than a black piece of the same type.
     
     ```python
     TODO
@@ -536,6 +694,7 @@ class PieceType:
     Piece type enum class.
     Represents the different types of chess pieces.
     Indexing starts at 0 (PAWN) and ends at 5 (KING).
+    Supports comparison and equality.
     Does not include color.
     
     `rust_chess` has constants for each piece type (e.g. PAWN, KNIGHT, etc.).
@@ -601,6 +760,7 @@ class Square:
     Square class.
     Represents a square on the chessboard.
     The square is represented as an integer (0-63) or a string (e.g. "e4").
+    Supports comparison and equality.
     
     `rust_chess` has constants for each square (e.g. A1, B2, etc.).
     
@@ -711,7 +871,7 @@ class Square:
         d2
         ```
         """
-    def __eq__(self, other:typing.Any) -> builtins.bool:
+    def __richcmp__(self, other:typing.Any, op:int) -> builtins.bool:
         r"""
         Compare the square to another square or integer.
         
@@ -719,6 +879,10 @@ class Square:
         >>> rust_chess.Square("d2") == rust_chess.D2
         True
         >>> rust_chess.Square("d2") == 11
+        True
+        >>> rust_chess.G6 > rust_chess.D3
+        True
+        >>> rust_chess.G6 <= 56
         True
         ```
         """
