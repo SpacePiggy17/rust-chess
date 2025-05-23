@@ -60,11 +60,11 @@ impl PyColor {
     /// 'BLACK'
     /// ```
     #[inline]
-    fn get_string(&self) -> String {
+    fn get_string(&self) -> &str {
         if *self == WHITE {
-            "WHITE".to_string()
+            "WHITE"
         } else {
-            "BLACK".to_string()
+            "BLACK"
         }
     }
 
@@ -77,7 +77,7 @@ impl PyColor {
     /// BLACK
     /// ```
     #[inline]
-    fn __str__(&self) -> String {
+    fn __str__(&self) -> &str {
         self.get_string()
     }
 
@@ -103,11 +103,11 @@ impl PyColor {
     /// False
     /// ```
     #[inline]
-    fn __repr__(&self) -> String {
+    fn __repr__(&self) -> &str {
         if self.__bool__() {
-            "True".to_string()
+            "True"
         } else {
-            "False".to_string()
+            "False"
         }
     }
 
@@ -1139,10 +1139,10 @@ impl PyBoard {
     fn get_fen(&self) -> String {
         let base_fen = self.board.to_string();
 
-        // The chess crate does not track the halfmove clock and fullmove number, so we need to add them manually.
         // 0: board, 1: player, 2: castling, 3: en passant, 4: halfmove clock, 5: fullmove number
         let mut parts: Vec<&str> = base_fen.split_whitespace().collect();
-
+        
+        // The chess crate does not track the halfmove clock and fullmove number correctly, so we need to add them manually.
         let halfmove_clock_str: String = self.halfmove_clock.to_string();
         let fullmove_number_str: String = self.fullmove_number.to_string();
         parts[4] = halfmove_clock_str.as_str();
