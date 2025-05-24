@@ -3,6 +3,7 @@
 
 import builtins
 import typing
+from enum import Enum
 
 A1: Square
 A2: Square
@@ -85,6 +86,7 @@ class Bitboard:
     Each bit represents a square on the chessboard.
     The least-significant bit represents a1, and the most-significant bit represents h8.
     Supports bitwise operations and iteration.
+    Also supports comparison and equality.
     """
     def __new__(cls, bitboard_or_square:typing.Any) -> Bitboard:
         r"""
@@ -325,29 +327,6 @@ class Board:
         rnbqkbnr/ppp1pppp/8/3p4/2P1P3/8/PP1P1PPP/RNBQKBNR b KQkq - 0 2
         ```
         """
-    def is_fifty_moves(self) -> builtins.bool:
-        r"""
-        Checks if the halfmoves since the last pawn move or capture is >= 100
-        and the game is ongoing (not checkmate or stalemate).
-        
-        ```python
-        >>> rust_chess.Board().is_fifty_moves
-        False
-        >>> rust_chess.Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 50 1").is_fifty_moves()
-        True
-        ```
-        """
-    def is_check(self) -> builtins.bool:
-        r"""
-        Checks if the side to move is in check.
-        
-        ```python
-        >>> rust_chess.Board().is_check
-        False
-        >>> rust_chess.Board("rnb1kbnr/pppp1ppp/4p3/8/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3").is_check()
-        True
-        ```
-        """
     def get_piece_type_on(self, square:Square) -> typing.Optional[PieceType]:
         r"""
         Get the piece type on a square, otherwise None.
@@ -439,6 +418,56 @@ class Board:
         Generate the next remaining legal captures for the current board.
         Exhausts the move generator if fully iterated over.
         Updates the move generator.
+        """
+    def is_insufficient_material(self) -> builtins.bool:
+        r"""
+        Checks if the side to move has insufficient material to checkmate the opponent.
+        The cases where this is true are:
+            1. K vs K
+            2. K vs K + N
+            3. K vs K + B
+            4. K + B vs K + B with the bishops on the same color.
+        """
+    def is_fifty_moves(self) -> builtins.bool:
+        r"""
+        Checks if the halfmoves since the last pawn move or capture is >= 100
+        and the game is ongoing (not checkmate or stalemate).
+        
+        ```python
+        >>> rust_chess.Board().is_fifty_moves
+        False
+        >>> rust_chess.Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 50 1").is_fifty_moves()
+        True
+        ```
+        """
+    def is_seventy_five_moves(self) -> builtins.bool:
+        r"""
+        Checks if the halfmoves since the last pawn move or capture is >= 150
+        and the game is ongoing (not checkmate or stalemate).
+        """
+    def is_fivefold_repetition(self) -> builtins.bool: ...
+    def is_check(self) -> builtins.bool:
+        r"""
+        Checks if the side to move is in check.
+        
+        ```python
+        >>> rust_chess.Board().is_check
+        False
+        >>> rust_chess.Board("rnb1kbnr/pppp1ppp/4p3/8/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3").is_check()
+        True
+        ```
+        """
+    def is_stalemate(self) -> builtins.bool:
+        r"""
+        Checks if the side to move is in stalemate
+        """
+    def is_checkmate(self) -> builtins.bool:
+        r"""
+        Checks if the side to move is in checkmate
+        """
+    def get_status(self) -> BoardStatus:
+        r"""
+        Get the status of the board
         """
 
 class Color:
@@ -859,6 +888,10 @@ class Square:
         e4
         ```
         """
+    def get_color(self) -> Color:
+        r"""
+        Get the color of the square on the chessboard
+        """
     @staticmethod
     def from_name(square_name:builtins.str) -> Square:
         r"""
@@ -942,4 +975,19 @@ class Square:
         True
         ```
         """
+
+class BoardStatus(Enum):
+    r"""
+    Board status enum class.
+    Represents the status of a chess board.
+    The status can be one of the following:
+        Ongoing, five-fold repetition, seventy-five moves, insufficient material, stalemate, or checkmate.
+    Supports comparison and equality.
+    """
+    ONGOING = ...
+    FIVE_FOLD_REPETITION = ...
+    SEVENTY_FIVE_MOVES = ...
+    INSUFFICIENT_MATERIAL = ...
+    STALEMATE = ...
+    CHECKMATE = ...
 

@@ -8,7 +8,7 @@ use std::str::FromStr;
 use pyo3::{basic::CompareOp, exceptions::PyValueError, prelude::*, types::PyAny};
 use pyo3_stub_gen::{
     define_stub_info_gatherer,
-    derive::{gen_stub_pyclass, gen_stub_pymethods},
+    derive::{gen_stub_pyclass, gen_stub_pyclass_enum, gen_stub_pymethods},
     module_variable,
 };
 
@@ -283,9 +283,10 @@ impl PyPiece {
 /// Each bit represents a square on the chessboard.
 /// The least-significant bit represents a1, and the most-significant bit represents h8.
 /// Supports bitwise operations and iteration.
+/// Also supports comparison and equality.
 ///
 #[gen_stub_pyclass]
-#[pyclass(name = "Bitboard", eq)]
+#[pyclass(name = "Bitboard", eq, ord)]
 #[derive(PartialEq, Eq, PartialOrd, Clone, Copy, Default, Hash)]
 struct PyBitboard(chess::BitBoard);
 
@@ -737,6 +738,17 @@ impl PySquare {
         self.get_name()
     }
 
+    /// Get the color of the square on the chessboard
+    #[inline]
+    fn get_color(&self) -> PyColor {
+        // column % 2 == row % 2
+        if self.get_file() % 2 == self.get_rank() % 2 {
+            WHITE
+        } else {
+            BLACK
+        }
+    }
+
     /// Create a new square from a name (e.g. "e4").
     /// Not really needed since you can use the square constants.
     /// Could also just call the constructor with the name string.
@@ -1062,6 +1074,30 @@ impl PyMoveGenerator {
     }
 }
 
+/// Board status enum class.
+/// Represents the status of a chess board.
+/// The status can be one of the following:
+///     Ongoing, five-fold repetition, seventy-five moves, insufficient material, stalemate, or checkmate.
+/// Supports comparison and equality.
+///
+#[gen_stub_pyclass_enum]
+#[pyclass(name = "BoardStatus", frozen, eq, ord)]
+#[derive(Copy, Clone, PartialEq, PartialOrd)]
+enum PyBoardStatus {
+    #[pyo3(name = "ONGOING")]
+    Ongoing,
+    #[pyo3(name = "FIVE_FOLD_REPETITION")]
+    FiveFoldRepetition,
+    #[pyo3(name = "SEVENTY_FIVE_MOVES")]
+    SeventyFiveMoves,
+    #[pyo3(name = "INSUFFICIENT_MATERIAL")]
+    InsufficientMaterial,
+    #[pyo3(name = "STALEMATE")]
+    Stalemate,
+    #[pyo3(name = "CHECKMATE")]
+    Checkmate,
+}
+
 /// Board class.
 /// Represents the state of a chess board.
 ///
@@ -1141,7 +1177,7 @@ impl PyBoard {
 
         // 0: board, 1: player, 2: castling, 3: en passant, 4: halfmove clock, 5: fullmove number
         let mut parts: Vec<&str> = base_fen.split_whitespace().collect();
-        
+
         // The chess crate does not track the halfmove clock and fullmove number correctly, so we need to add them manually.
         let halfmove_clock_str: String = self.halfmove_clock.to_string();
         let fullmove_number_str: String = self.fullmove_number.to_string();
@@ -1244,33 +1280,6 @@ impl PyBoard {
     #[inline]
     fn get_en_passant(&self) -> Option<PySquare> {
         self.board.en_passant().map(PySquare)
-    }
-
-    /// Checks if the halfmoves since the last pawn move or capture is >= 100
-    /// and the game is ongoing (not checkmate or stalemate).
-    ///
-    /// ```python
-    /// >>> rust_chess.Board().is_fifty_moves
-    /// False
-    /// >>> rust_chess.Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 50 1").is_fifty_moves()
-    /// True
-    /// ```
-    #[inline]
-    fn is_fifty_moves(&self) -> bool {
-        self.halfmove_clock >= 100 && self.board.status() == chess::BoardStatus::Ongoing
-    }
-
-    /// Checks if the side to move is in check.
-    ///
-    /// ```python
-    /// >>> rust_chess.Board().is_check
-    /// False
-    /// >>> rust_chess.Board("rnb1kbnr/pppp1ppp/4p3/8/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3").is_check()
-    /// True
-    /// ```
-    #[inline]
-    fn is_check(&self) -> bool {
-        *self.board.checkers() != chess::EMPTY
     }
 
     /// Get the piece type on a square, otherwise None.
@@ -1522,6 +1531,124 @@ impl PyBoard {
         // Share ownership with Python
         self.move_gen.clone_ref(py)
     }
+
+    /// Checks if the side to move has insufficient material to checkmate the opponent.
+    /// The cases where this is true are:
+    ///     1. K vs K
+    ///     2. K vs K + N
+    ///     3. K vs K + B
+    ///     4. K + B vs K + B with the bishops on the same color.
+    #[inline]
+    fn is_insufficient_material(&self) -> bool {
+        let kings = self.board.pieces(chess::Piece::King);
+
+        // Get the bitboards of the white and black pieces without the kings
+        let white_bb = self.board.color_combined(chess::Color::White) & !kings;
+        let black_bb = self.board.color_combined(chess::Color::Black) & !kings;
+        let combined_bb = white_bb | black_bb;
+
+        // King vs King: Combined bitboard minus kings is empty
+        if combined_bb == chess::EMPTY {
+            return true;
+        }
+
+        let remaining_num_pieces = combined_bb.popcnt();
+
+        if remaining_num_pieces <= 2 {
+            let knights = self.board.pieces(chess::Piece::Knight);
+            let bishops = self.board.pieces(chess::Piece::Bishop);
+
+            // King vs King + Knight/Bishop: Combined bitboard minus kings and knight/bishop is empty
+            if remaining_num_pieces == 1 && combined_bb & !(knights | bishops) == chess::EMPTY {
+                return true;
+            } else if *knights == chess::EMPTY {
+                // Only bishops left
+                let white_bishops = bishops & white_bb;
+                let black_bishops = bishops & black_bb;
+
+                if white_bishops != chess::EMPTY && black_bishops != chess::EMPTY // Both sides have a bishop
+                    // King + Bishop vs King + Bishop same color: White and black bishops are on the same color square
+                    && PySquare(white_bishops.to_square()).get_color() == PySquare(black_bishops.to_square()).get_color()
+                {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Checks if the halfmoves since the last pawn move or capture is >= 100
+    /// and the game is ongoing (not checkmate or stalemate).
+    ///
+    /// ```python
+    /// >>> rust_chess.Board().is_fifty_moves
+    /// False
+    /// >>> rust_chess.Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 50 1").is_fifty_moves()
+    /// True
+    /// ```
+    #[inline]
+    fn is_fifty_moves(&self) -> bool {
+        self.halfmove_clock >= 100 && self.board.status() == chess::BoardStatus::Ongoing
+    }
+
+    /// Checks if the halfmoves since the last pawn move or capture is >= 150
+    /// and the game is ongoing (not checkmate or stalemate).
+    ///
+    #[inline]
+    fn is_seventy_five_moves(&self) -> bool {
+        self.halfmove_clock >= 150 && self.board.status() == chess::BoardStatus::Ongoing
+    }
+
+    // TODO: Check threefold and fivefold repetition
+    fn is_fivefold_repetition(&self) -> bool {
+        false
+    }
+
+    /// Checks if the side to move is in check.
+    ///
+    /// ```python
+    /// >>> rust_chess.Board().is_check
+    /// False
+    /// >>> rust_chess.Board("rnb1kbnr/pppp1ppp/4p3/8/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3").is_check()
+    /// True
+    /// ```
+    #[inline]
+    fn is_check(&self) -> bool {
+        *self.board.checkers() != chess::EMPTY
+    }
+
+    /// Checks if the side to move is in stalemate
+    #[inline]
+    fn is_stalemate(&self) -> bool {
+        self.board.status() == chess::BoardStatus::Stalemate
+    }
+
+    /// Checks if the side to move is in checkmate
+    #[inline]
+    fn is_checkmate(&self) -> bool {
+        self.board.status() == chess::BoardStatus::Checkmate
+    }
+
+    /// Get the status of the board
+    #[inline]
+    fn get_status(&self) -> PyBoardStatus {
+        let status = self.board.status();
+        match status {
+            chess::BoardStatus::Checkmate => PyBoardStatus::Checkmate,
+            chess::BoardStatus::Stalemate => PyBoardStatus::Stalemate,
+            chess::BoardStatus::Ongoing => {
+                if self.is_insufficient_material() {
+                    PyBoardStatus::InsufficientMaterial
+                } else if self.is_seventy_five_moves() {
+                    PyBoardStatus::SeventyFiveMoves
+                } else if self.is_fivefold_repetition() {
+                    PyBoardStatus::FiveFoldRepetition
+                } else {
+                    PyBoardStatus::Ongoing
+                }
+            }
+        }
+    }
 }
 
 // Define the Python module
@@ -1534,6 +1661,7 @@ fn rust_chess(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PySquare>()?;
     module.add_class::<PyMove>()?;
     module.add_class::<PyMoveGenerator>()?;
+    module.add_class::<PyBoardStatus>()?;
     module.add_class::<PyBoard>()?;
 
     // Add the constants and stubs to the module
