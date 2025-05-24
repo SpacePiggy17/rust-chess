@@ -363,6 +363,10 @@ class Board:
         k
         ```
         """
+    def get_king_square(self, color:Color) -> Square:
+        r"""
+        Get the king square of a certain color
+        """
     def is_zeroing(self, chess_move:Move) -> builtins.bool:
         r"""
         Check if a move is a capture or a pawn move.
@@ -383,6 +387,11 @@ class Board:
         False
         ```
         """
+    def make_null_move_new(self) -> typing.Optional[Board]:
+        r"""
+        Make a null move onto a new board.
+        Returns None if the current player is in check.
+        """
     def make_move_new(self, chess_move:Move, check_legality:builtins.bool=False) -> Board:
         r"""
         Make a move onto a new board
@@ -390,6 +399,30 @@ class Board:
     def make_move(self, chess_move:Move, check_legality:builtins.bool=False) -> None:
         r"""
         Make a move on the current board
+        """
+    def get_pinned_bitboard(self) -> Bitboard:
+        r"""
+        Get the bitboard of the side to move's pinned pieces
+        """
+    def get_checkers_bitboard(self) -> Bitboard:
+        r"""
+        Get the bitboard of the pieces putting the side to move in check
+        """
+    def get_all_bitboard(self) -> Bitboard:
+        r"""
+        Get the bitboard of all the pieces
+        """
+    def get_color_bitboard(self, color:Color) -> Bitboard:
+        r"""
+        Get the bitboard of all the pieces of a certain color
+        """
+    def get_piece_type_bitboard(self, piece_type:PieceType) -> Bitboard:
+        r"""
+        Get the bitboard of all the pieces of a certain type
+        """
+    def get_piece_bitboard(self, piece:Piece) -> Bitboard:
+        r"""
+        Get the bitboard of all the pieces of a certain color and type
         """
     def remove_move(self, chess_move:Move) -> None:
         r"""
@@ -427,6 +460,21 @@ class Board:
             2. K vs K + N
             3. K vs K + B
             4. K + B vs K + B with the bishops on the same color.
+        
+        ```python
+        >>> rust_chess.Board().is_insufficient_material()
+        False
+        >>> rust_chess.Board("4k3/8/8/8/8/8/8/4K3 w - - 0 1").is_insufficient_material() # K vs K
+        True
+        >>> rust_chess.Board("4k3/8/8/8/5N2/8/8/4K3 w - - 0 1").is_insufficient_material() # K vs K + N
+        True
+        >>> rust_chess.Board("4k3/8/8/8/5B2/8/8/4K3 w - - 0 1").is_insufficient_material() # K vs K + B
+        True
+        >>> rust_chess.Board("4k3/8/8/5b2/5B2/8/8/4K3 w - - 0 1").is_insufficient_material() # K + B vs K + B different color
+        False
+        >>> rust_chess.Board("4k3/8/5b2/8/5B2/8/8/4K3 w - - 0 1").is_insufficient_material() # K + B vs K + B same color
+        True
+        ```
         """
     def is_fifty_moves(self) -> builtins.bool:
         r"""
@@ -445,7 +493,11 @@ class Board:
         Checks if the halfmoves since the last pawn move or capture is >= 150
         and the game is ongoing (not checkmate or stalemate).
         """
-    def is_fivefold_repetition(self) -> builtins.bool: ...
+    def is_fivefold_repetition(self) -> builtins.bool:
+        r"""
+        Checks if the game is in a fivefold repetition.
+        TODO: Currently not implementable due to no storage of past moves
+        """
     def is_check(self) -> builtins.bool:
         r"""
         Checks if the side to move is in check.

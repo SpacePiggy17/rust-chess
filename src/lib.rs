@@ -225,7 +225,11 @@ impl PyPieceType {
 #[pyclass(name = "Piece", frozen, eq, ord)]
 #[derive(PartialOrd, PartialEq, Eq, Copy, Clone, Hash)]
 struct PyPiece {
+    /// Get the piece type of the piece
+    #[pyo3(get)]
     piece_type: PyPieceType,
+    /// Get the color of the piece
+    #[pyo3(get)]
     color: PyColor,
 }
 
@@ -261,20 +265,6 @@ impl PyPiece {
     #[inline]
     fn __repr__(&self) -> String {
         self.get_string()
-    }
-
-    /// Get the piece type of the piece
-    #[getter]
-    #[inline]
-    fn get_piece_type(&self) -> PyPieceType {
-        self.piece_type
-    }
-
-    /// Get the color of the piece
-    #[getter]
-    #[inline]
-    fn get_color(&self) -> PyColor {
-        self.color
     }
 }
 
@@ -1329,6 +1319,12 @@ impl PyBoard {
         })
     }
 
+    /// Get the king square of a certain color
+    #[inline]
+    fn get_king_square(&self, color: PyColor) -> PySquare {
+        PySquare(self.board.king_square(color.0))
+    }
+
     /// Check if a move is a capture or a pawn move.
     /// Doesn't check legality.
     ///
@@ -1358,7 +1354,39 @@ impl PyBoard {
 
     // TODO: is_legal_quick
 
-    // TODO: make_null_move_new, make_null_move
+    /// Make a null move onto a new board.
+    /// Returns None if the current player is in check.
+    ///
+    #[inline]
+    fn make_null_move_new(&self) -> PyResult<Option<Self>> {
+        // Get the new board using the chess crate
+        let Some(new_board) = self.board.null_move() else {
+            return Ok(None);
+        };
+
+        // Increment the halfmove clock
+        let halfmove_clock: u8 = self.halfmove_clock + 1;
+
+        // Increment fullmove number if black moves
+        let fullmove_number: u8 = if self.board.side_to_move() == chess::Color::Black {
+            self.fullmove_number + 1
+        } else {
+            self.fullmove_number
+        };
+
+        // We can assume the GIL is acquired, since this function is only called from Python
+        let py = unsafe { Python::assume_gil_acquired() };
+
+        // Create a new move generator using the chess crate
+        let move_gen = Py::new(py, PyMoveGenerator(chess::MoveGen::new_legal(&new_board)))?;
+
+        Ok(Some(PyBoard {
+            board: new_board,
+            move_gen,
+            halfmove_clock,
+            fullmove_number,
+        }))
+    }
 
     /// Make a move onto a new board
     ///
@@ -1434,6 +1462,42 @@ impl PyBoard {
         self.move_gen = Py::new(py, PyMoveGenerator(chess::MoveGen::new_legal(&temp_board)))?;
 
         Ok(())
+    }
+
+    /// Get the bitboard of the side to move's pinned pieces
+    #[inline]
+    fn get_pinned_bitboard(&self) -> PyBitboard {
+        PyBitboard(*self.board.pinned())
+    }
+
+    /// Get the bitboard of the pieces putting the side to move in check
+    #[inline]
+    fn get_checkers_bitboard(&self) -> PyBitboard {
+        PyBitboard(*self.board.checkers())
+    }
+
+    /// Get the bitboard of all the pieces
+    #[inline]
+    fn get_all_bitboard(&self) -> PyBitboard {
+        PyBitboard(*self.board.combined())
+    }
+
+    /// Get the bitboard of all the pieces of a certain color
+    #[inline]
+    fn get_color_bitboard(&self, color: PyColor) -> PyBitboard {
+        PyBitboard(*self.board.color_combined(color.0))
+    }
+
+    /// Get the bitboard of all the pieces of a certain type
+    #[inline]
+    fn get_piece_type_bitboard(&self, piece_type: PyPieceType) -> PyBitboard {
+        PyBitboard(*self.board.pieces(piece_type.0))
+    }
+
+    /// Get the bitboard of all the pieces of a certain color and type
+    #[inline]
+    fn get_piece_bitboard(&self, piece: PyPiece) -> PyBitboard {
+        PyBitboard(self.board.pieces(piece.piece_type.0) & self.board.color_combined(piece.color.0))
     }
 
     // TODO: set_iterator_mask, will have to implement PyBitboard
@@ -1538,6 +1602,21 @@ impl PyBoard {
     ///     2. K vs K + N
     ///     3. K vs K + B
     ///     4. K + B vs K + B with the bishops on the same color.
+    ///
+    /// ```python
+    /// >>> rust_chess.Board().is_insufficient_material()
+    /// False
+    /// >>> rust_chess.Board("4k3/8/8/8/8/8/8/4K3 w - - 0 1").is_insufficient_material() # K vs K
+    /// True
+    /// >>> rust_chess.Board("4k3/8/8/8/5N2/8/8/4K3 w - - 0 1").is_insufficient_material() # K vs K + N
+    /// True
+    /// >>> rust_chess.Board("4k3/8/8/8/5B2/8/8/4K3 w - - 0 1").is_insufficient_material() # K vs K + B
+    /// True
+    /// >>> rust_chess.Board("4k3/8/8/5b2/5B2/8/8/4K3 w - - 0 1").is_insufficient_material() # K + B vs K + B different color
+    /// False
+    /// >>> rust_chess.Board("4k3/8/5b2/8/5B2/8/8/4K3 w - - 0 1").is_insufficient_material() # K + B vs K + B same color
+    /// True
+    /// ```
     #[inline]
     fn is_insufficient_material(&self) -> bool {
         let kings = self.board.pieces(chess::Piece::King);
@@ -1600,6 +1679,10 @@ impl PyBoard {
     }
 
     // TODO: Check threefold and fivefold repetition
+
+    /// Checks if the game is in a fivefold repetition.
+    /// TODO: Currently not implementable due to no storage of past moves
+    #[inline]
     fn is_fivefold_repetition(&self) -> bool {
         false
     }
