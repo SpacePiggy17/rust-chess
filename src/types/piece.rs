@@ -1,7 +1,7 @@
 use pyo3::prelude::*;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 
-use crate::types::color::{BLACK, WHITE};
+use crate::types::color::{PyColor, WHITE};
 
 // Piece constants
 pub(crate) const PAWN: PyPieceType = PyPieceType(chess::Piece::Pawn);
@@ -37,7 +37,7 @@ pub(crate) const PIECES: [PyPieceType; 6] = [PAWN, KNIGHT, BISHOP, ROOK, QUEEN, 
 #[gen_stub_pyclass]
 #[pyclass(name = "PieceType", frozen, eq, ord)]
 #[derive(PartialEq, Eq, Ord, PartialOrd, Copy, Clone, Hash)]
-struct PyPieceType(chess::Piece);
+pub(crate) struct PyPieceType(pub(crate) chess::Piece);
 
 #[gen_stub_pymethods]
 #[pymethods]
@@ -105,13 +105,13 @@ impl PyPieceType {
 #[gen_stub_pyclass]
 #[pyclass(name = "Piece", frozen, eq, ord)]
 #[derive(PartialOrd, PartialEq, Eq, Copy, Clone, Hash)]
-struct PyPiece {
+pub(crate) struct PyPiece {
     /// Get the piece type of the piece
     #[pyo3(get)]
-    piece_type: PyPieceType,
+    pub(crate) piece_type: PyPieceType,
     /// Get the color of the piece
     #[pyo3(get)]
-    color: PyColor,
+    pub(crate) color: PyColor,
 }
 
 #[gen_stub_pymethods]

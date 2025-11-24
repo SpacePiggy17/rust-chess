@@ -24,7 +24,7 @@ pub(crate) const COLORS: [PyColor; 2] = [WHITE, BLACK];
 #[gen_stub_pyclass]
 #[pyclass(name = "Color", frozen)]
 #[derive(PartialOrd, PartialEq, Eq, Copy, Clone, Hash)]
-pub(crate) struct PyColor(chess::Color);
+pub(crate) struct PyColor(pub(crate) chess::Color);
 
 #[gen_stub_pymethods]
 #[pymethods]
